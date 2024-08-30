@@ -9,67 +9,77 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 import * as Hapi from '@hapi/hapi'
+import { effect, logger, saga } from '@opencrvs/commons'
+import { getAuthHeader } from '@opencrvs/commons/http'
 import {
   BirthRegistration,
-  DeathRegistration,
-  EVENT_TYPE,
-  MarriageRegistration,
   buildFHIRBundle,
   Bundle,
-  getComposition,
-  getTrackingId as getTrackingIdFromRecord,
-  isTask,
   changeState,
+  DeathRegistration,
+  EVENT_TYPE,
+  getComposition,
+  getTaskFromSavedBundle,
+  getTrackingId as getTrackingIdFromRecord,
   InProgressRecord,
-  ReadyForReviewRecord,
-  ValidatedRecord,
-  WaitingForValidationRecord,
-  isRejected,
+  isComposition,
   isInProgress,
   isReadyForReview,
+  isRejected,
+  isTask,
   isValidated,
   isWaitingExternalValidation,
-  isComposition,
-  getTaskFromSavedBundle
+  MarriageRegistration,
+  ReadyForReviewRecord,
+  TransactionResponse,
+  ValidatedRecord,
+  ValidRecord,
+  WaitingForValidationRecord
 } from '@opencrvs/commons/types'
+import { uploadBase64AttachmentsToDocumentsStore } from '@workflow/documents'
+import { getTrackingId } from '@workflow/features/registration/fhir/fhir-utils'
+import {
+  generateTrackingIdForEvents,
+  isInProgressDeclaration
+} from '@workflow/features/registration/utils'
+import {
+  auditEventWithTransaction,
+  revertAuditEvent
+} from '@workflow/records/audit'
+import {
+  findTaskFromIdentifier,
+  mergeBundles,
+  revertHearthTransaction,
+  sendBundleToHearth,
+  toSavedBundle,
+  withPractitionerDetails
+} from '@workflow/records/fhir'
+import {
+  isNotificationEnabled,
+  sendNotification
+} from '@workflow/records/notification'
+import {
+  deleteRecordFromSearchIndex,
+  indexBundle
+} from '@workflow/records/search'
+import {
+  initiateRegistration,
+  toValidated,
+  toWaitingForExternalValidationState
+} from '@workflow/records/state-transitions'
+import { validateRequest } from '@workflow/utils'
 import {
   getToken,
   hasRegisterScope,
   hasValidateScope
 } from '@workflow/utils/auth-utils'
 import {
-  findTaskFromIdentifier,
-  mergeBundles,
-  sendBundleToHearth,
-  toSavedBundle,
-  withPractitionerDetails
-} from '@workflow/records/fhir'
-import { z } from 'zod'
-import { indexBundle } from '@workflow/records/search'
-import { validateRequest } from '@workflow/utils'
-import {
   findDuplicateIds,
   updateCompositionWithDuplicateIds,
   updateTaskWithDuplicateIds
 } from '@workflow/utils/duplicate-checker'
-import {
-  generateTrackingIdForEvents,
-  isInProgressDeclaration
-} from '@workflow/features/registration/utils'
-import { auditEvent } from '@workflow/records/audit'
-import { getTrackingId } from '@workflow/features/registration/fhir/fhir-utils'
-import {
-  isNotificationEnabled,
-  sendNotification
-} from '@workflow/records/notification'
-import { uploadBase64AttachmentsToDocumentsStore } from '@workflow/documents'
-import { getAuthHeader } from '@opencrvs/commons/http'
-import {
-  initiateRegistration,
-  toValidated,
-  toWaitingForExternalValidationState
-} from '@workflow/records/state-transitions'
-import { logger } from '@opencrvs/commons'
+import { z } from 'zod'
+import { RecordEvent } from '../record-events'
 
 const requestSchema = z.object({
   event: z.custom<EVENT_TYPE>(),
@@ -142,7 +152,7 @@ async function createRecord(
   event: z.TypeOf<typeof requestSchema>['event'],
   token: string,
   duplicateIds: Array<{ id: string; trackingId: string }>
-): Promise<InProgressRecord | ReadyForReviewRecord> {
+): Promise<[InProgressRecord | ReadyForReviewRecord, TransactionResponse]> {
   const inputBundle = buildFHIRBundle(recordDetails, event)
   const trackingId = await generateTrackingIdForEvents(
     event,
@@ -192,7 +202,7 @@ async function createRecord(
     ? changeState(savedBundle, 'IN_PROGRESS')
     : changeState(savedBundle, 'READY_FOR_REVIEW')
 
-  return mergeBundles(record, practitionerResourcesBundle)
+  return [mergeBundles(record, practitionerResourcesBundle), responseBundle]
 }
 
 type CreatedRecord =
@@ -220,11 +230,26 @@ function getEventAction(record: CreatedRecord) {
   return 'sent-notification'
 }
 
+export function createAuditEffect(
+  event: RecordEvent,
+  bundle: ValidRecord,
+  token: string,
+  transactionId: string
+) {
+  return effect(
+    () => auditEventWithTransaction(event, bundle, token, transactionId),
+    () => revertAuditEvent(token, transactionId),
+    `audit event: ${event}`
+  )
+}
+
 export default async function createRecordHandler(
   request: Hapi.Request,
   _: Hapi.ResponseToolkit
 ) {
   const token = getToken(request)
+  const transactionId = request.headers['x-correlation-id']
+
   const { record: recordDetails, event } = validateRequest(
     requestSchema,
     request.payload
@@ -249,71 +274,143 @@ export default async function createRecordHandler(
       recordDetails,
       getAuthHeader(request)
     )
-  let record: CreatedRecord = await createRecord(
-    recordInputWithUploadedAttachments,
-    event,
-    token,
-    duplicateIds
-  )
 
-  await auditEvent(
-    isInProgress(record) ? 'sent-notification' : 'sent-notification-for-review',
-    record,
-    token
-  )
+  return saga(async (run) => {
+    const [newRecord]: [CreatedRecord, TransactionResponse] = await run(
+      effect(
+        () =>
+          createRecord(
+            recordInputWithUploadedAttachments,
+            event,
+            token,
+            duplicateIds
+          ),
+        ([_, transaction]) => revertHearthTransaction(transaction),
+        'create record'
+      )
+    )
 
-  if (duplicateIds.length) {
-    await indexBundle(record, token)
-    let task = getTaskFromSavedBundle(record)
-    task = updateTaskWithDuplicateIds(task, duplicateIds)
-    await sendBundleToHearth({
-      ...record,
-      entry: [{ resource: task }]
-    })
+    await run(
+      createAuditEffect(
+        isInProgress(newRecord)
+          ? 'sent-notification'
+          : 'sent-notification-for-review',
+        newRecord,
+        token,
+        transactionId
+      )
+    )
+    let record: CreatedRecord = newRecord
+
+    if (duplicateIds.length) {
+      await run(
+        effect(
+          () => indexBundle(record, token),
+          () => deleteRecordFromSearchIndex(record, token),
+          'index record'
+        )
+      )
+
+      const task = updateTaskWithDuplicateIds(
+        getTaskFromSavedBundle(record),
+        duplicateIds
+      )
+
+      await run(
+        effect(
+          () => sendBundleToHearth({ ...record, entry: [{ resource: task }] }),
+          (transaction) => revertHearthTransaction(transaction),
+          'update task with duplicate ids'
+        )
+      )
+
+      return {
+        compositionId: getComposition(record).id,
+        trackingId: getTrackingIdFromRecord(record),
+        isPotentiallyDuplicate: true
+      }
+    }
+
+    if (hasValidateScope(request)) {
+      /*
+       * Record is being validated
+       */
+      record = await toValidated(record, token)
+      await run(
+        createAuditEffect('sent-for-approval', record, token, transactionId)
+      )
+    } else if (hasRegisterScope(request) && !isInProgress(record)) {
+      /*
+       * Record is being registered
+       */
+      record = await toWaitingForExternalValidationState(record, token)
+      await run(
+        createAuditEffect(
+          'waiting-external-validation',
+          record,
+          token,
+          transactionId
+        )
+      )
+    }
+    const eventAction = getEventAction(record)
+
+    await run(
+      effect(
+        () => indexBundle(record, token),
+        () => deleteRecordFromSearchIndex(record, token),
+        'index record'
+      )
+    )
+
+    /*
+     * We need to initiate registration for a
+     * record in waiting validation state
+     */
+    if (isWaitingExternalValidation(record)) {
+      const rejectedOrWaitingValidationRecord = await initiateRegistration(
+        record,
+        request.headers,
+        token
+      )
+
+      if (isRejected(rejectedOrWaitingValidationRecord)) {
+        await run(
+          effect(
+            () => indexBundle(rejectedOrWaitingValidationRecord, token),
+            () =>
+              deleteRecordFromSearchIndex(
+                rejectedOrWaitingValidationRecord,
+                token
+              ),
+            'index record'
+          )
+        )
+        await run(
+          createAuditEffect('sent-for-updates', record, token, transactionId)
+        )
+      }
+    } else {
+      // Notification not implemented for marriage yet
+      const notificationDisabled =
+        eventAction === 'waiting-external-validation' ||
+        !(await isNotificationEnabled(eventAction, event, token))
+
+      if (!notificationDisabled) {
+        await run(
+          effect(
+            () => sendNotification(eventAction, record, token),
+            () => Promise.resolve(),
+            'send notification'
+          )
+        )
+      }
+    }
+
     return {
       compositionId: getComposition(record).id,
       trackingId: getTrackingIdFromRecord(record),
-      isPotentiallyDuplicate: true
+      isPotentiallyDuplicate: false
     }
-  } else if (hasValidateScope(request)) {
-    record = await toValidated(record, token)
-    await auditEvent('sent-for-approval', record, token)
-  } else if (hasRegisterScope(request) && !isInProgress(record)) {
-    record = await toWaitingForExternalValidationState(record, token)
-    await auditEvent('waiting-external-validation', record, token)
-  }
-  const eventAction = getEventAction(record)
-  await indexBundle(record, token)
-
-  // Notification not implemented for marriage yet
-  const notificationDisabled =
-    eventAction === 'waiting-external-validation' ||
-    !(await isNotificationEnabled(eventAction, event, token))
-
-  if (!notificationDisabled) {
-    await sendNotification(eventAction, record, token)
-  }
-
-  /*
-   * We need to initiate registration for a
-   * record in waiting validation state
-   */
-  if (isWaitingExternalValidation(record)) {
-    const rejectedOrWaitingValidationRecord = await initiateRegistration(
-      record,
-      request.headers,
-      token
-    )
-
-    if (isRejected(rejectedOrWaitingValidationRecord)) {
-      await indexBundle(rejectedOrWaitingValidationRecord, token)
-      await auditEvent('sent-for-updates', record, token)
-    }
-  }
-
-  return {
-    compositionId: getComposition(record).id,
-    trackingId: getTrackingIdFromRecord(record),
-    isPotentiallyDuplicate: false
-  }
+  })
 }

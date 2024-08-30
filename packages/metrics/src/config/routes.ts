@@ -63,6 +63,7 @@ import { totalCorrectionsHandler } from '@metrics/features/corrections/handler'
 import { locationStatisticsHandler } from '@metrics/features/locationStatistics/handler'
 import { totalCertificationsHandler } from '@metrics/features/certifications/handler'
 import {
+  deletePointsByTransactionId,
   getUserAuditsHandler,
   newAuditHandler
 } from '@metrics/features/audit/handler'
@@ -759,6 +760,15 @@ export const getRoutes = () => {
             timeEnd: Joi.string()
           })
         },
+        tags: ['api']
+      }
+    },
+    // delete audit events for a specific transaction
+    {
+      method: 'DELETE',
+      path: '/audit/events/{transactionId}',
+      handler: deletePointsByTransactionId,
+      options: {
         tags: ['api']
       }
     }

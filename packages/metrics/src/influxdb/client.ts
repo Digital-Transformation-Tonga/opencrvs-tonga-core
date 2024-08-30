@@ -154,7 +154,14 @@ export const influx = new Influx.InfluxDB({
         ipAddress: Influx.FieldType.STRING,
         userAgent: Influx.FieldType.STRING
       },
-      tags: ['action', 'practitionerId']
+      tags: [
+        'action',
+        'practitionerId',
+        /* Has to be a tag so deleting by it works
+         * https://www.reddit.com/r/influxdb/comments/161doll/trying_to_delete_data_but_it_wont_work/
+         */
+        'transactionId'
+      ]
     },
     {
       measurement: 'marriage_registration',
@@ -180,6 +187,15 @@ export const writePoints = (points: IPoints[]) => {
     logger.error(`Error saving data to InfluxDB! ${err.stack}`)
     throw err
   })
+}
+
+export const deletePoints = (transactionId: string) => {
+  return influx.queryRaw(
+    `
+  DELETE FROM "user_audit_event" WHERE "transactionId" = $transactionId;
+`,
+    { placeholders: { transactionId } }
+  )
 }
 
 type InfluxQueryOptions = {

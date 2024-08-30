@@ -8,10 +8,40 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-import { Bundle, SavedTask, ValidRecord } from '@opencrvs/commons/types'
+import {
+  Bundle,
+  getComposition,
+  SavedTask,
+  ValidRecord
+} from '@opencrvs/commons/types'
 import { SEARCH_URL } from '@workflow/constants'
 import fetch from 'node-fetch'
 
+export async function deleteRecordFromSearchIndex(
+  bundle: ValidRecord,
+  authToken: string
+) {
+  const composition = getComposition(bundle)
+  const res = await fetch(
+    new URL(`/records/${composition.id}`, SEARCH_URL).href,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`
+      }
+    }
+  )
+  if (!res.ok) {
+    throw new Error(
+      `Removing the bundle from the search index failed with [${
+        res.status
+      }] body: ${await res.text()}`
+    )
+  }
+
+  return res
+}
 export async function indexBundle(bundle: ValidRecord, authToken: string) {
   const res = await fetch(new URL('/record', SEARCH_URL).href, {
     method: 'POST',

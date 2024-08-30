@@ -21,6 +21,7 @@ import {
   getTask,
   getTrackingId
 } from '@metrics/features/registration/fhirUtils'
+import { Bundle } from '@opencrvs/commons/types'
 
 type UserAuditAction =
   | 'DECLARED'
@@ -101,13 +102,16 @@ export async function createUserAuditPointFromFHIR(
   const userAgent =
     request.headers['x-real-user-agent'] || request.headers['user-agent']
 
-  const bundle = request.payload as fhir.Bundle
+  const bundle = request.payload as Bundle
+  const transactionId = request.headers['x-correlation-id']
+
   return writePoints([
     generateAuditPoint(
       getPractitionerIdFromBundle(bundle)!,
       action,
       ipAddress,
       userAgent,
+      transactionId,
       {
         compositionId: getCompositionIdFromCompositionOrTask(bundle),
         trackingId: getTrackingId(getTask(bundle)!)

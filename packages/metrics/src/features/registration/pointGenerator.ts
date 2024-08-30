@@ -38,7 +38,6 @@ import {
   getSectionBySectionCode,
   getTask,
   getPreviousTask,
-  getComposition,
   DECLARATION_STATUS,
   getDeclarationStatus,
   getTimeLoggedFromTask,
@@ -56,6 +55,7 @@ import {
   getPractitionerIdFromBundle,
   fetchDeclarationsBeginnerRole
 } from '@metrics/features/registration/fhirUtils'
+import { getComposition, SavedBundle } from '@opencrvs/commons/types'
 import {
   getAgeInDays,
   getAgeInYears,
@@ -73,7 +73,7 @@ import { fetchTaskHistory } from '@metrics/api'
 import { EVENT_TYPE } from '@metrics/features/metrics/utils'
 
 export const generateInCompleteFieldPoints = async (
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader
 ): Promise<IPoints[]> => {
   const composition = getComposition(payload)
@@ -137,7 +137,7 @@ export function toInfluxTimestamp(date?: Date | string) {
 }
 
 export const generateCertificationPoint = async (
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader
 ): Promise<ICertifiedPoints> => {
   const composition = getComposition(payload)
@@ -171,7 +171,7 @@ export const generateCertificationPoint = async (
   return point
 }
 export const generateBirthRegPoint = async (
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   regStatus: string,
   authHeader: IAuthHeader
 ): Promise<IPoints> => {
@@ -232,7 +232,7 @@ export const generateBirthRegPoint = async (
 }
 
 export const generateDeathRegPoint = async (
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   regStatus: string,
   authHeader: IAuthHeader
 ): Promise<IPoints> => {
@@ -314,7 +314,7 @@ export const generateDeathRegPoint = async (
 }
 
 export async function generateCorrectionReasonPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader
 ): Promise<ICorrectionPoint> {
   const composition = getComposition(payload)
@@ -349,7 +349,7 @@ export async function generateCorrectionReasonPoint(
   }
 }
 export async function generatePaymentPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader,
   paymentType: 'certification' | 'correction'
 ): Promise<IPaymentPoints> {
@@ -388,7 +388,7 @@ export async function generatePaymentPoint(
 }
 
 export async function generateEventDurationPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   allowedPreviousStates: DECLARATION_STATUS[],
   authHeader: IAuthHeader,
   fromTask?: boolean
@@ -448,7 +448,7 @@ export async function generateEventDurationPoint(
 }
 
 export async function generateTimeLoggedPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader,
   fromTask?: boolean
 ): Promise<IPoints> {
@@ -502,7 +502,7 @@ export async function generateTimeLoggedPoint(
 }
 
 export async function generateDeclarationStartedPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader,
   status: string
 ): Promise<IDeclarationsStartedPoints> {
@@ -556,7 +556,7 @@ export async function generateDeclarationStartedPoint(
 }
 
 export async function generateRejectedPoints(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader
 ): Promise<IRejectedPoints> {
   const task = getTask(payload)
@@ -591,7 +591,7 @@ export async function generateRejectedPoints(
 }
 
 export async function generateMarriageRegPoint(
-  payload: fhir.Bundle,
+  payload: SavedBundle,
   authHeader: IAuthHeader,
   regStatus: string
 ): Promise<IRejectedPoints> {
@@ -665,11 +665,13 @@ export const generateAuditPoint = (
   action: string,
   ipAddress: string,
   userAgent: string,
+  transactionId: string,
   additionalData?: Record<string, any>
 ): IPoints => {
   const tags: IUserAuditTags = {
     action: action,
-    practitionerId: practitionerId
+    practitionerId: practitionerId,
+    transactionId
   }
   const fields: IUserAuditFields = {
     data: JSON.stringify(additionalData),

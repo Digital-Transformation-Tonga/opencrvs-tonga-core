@@ -1098,6 +1098,46 @@ function createNewTaskResource(
   }
 }
 
+export async function revertHearthTransaction(
+  transactionBundle: TransactionResponse
+) {
+  const res = await fetch(FHIR_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 'transaction',
+      resourceType: 'Bundle',
+      entry: transactionBundle.entry.map((entry) => ({
+        request: {
+          method: 'DELETE',
+          url: entry.response.location.replace('/fhir/', '') + '?_purge=true'
+        }
+      }))
+    }),
+    headers: {
+      'Content-Type': 'application/fhir+json'
+    }
+  })
+
+  if (!res.ok) {
+    throw new Error(
+      `Reverting a FHIR transaction failed with [${
+        res.status
+      }] body: ${await res.text()}`
+    )
+  }
+
+  const responseBundle: TransactionResponse = await res.json()
+
+  const ok = responseBundle.entry.every((e) =>
+    e.response.status.startsWith('2')
+  )
+  if (!ok) {
+    throw new Error('Hearth was unable to delete all the entires in the bundle')
+  }
+
+  return responseBundle
+}
+
 export async function sendBundleToHearth(
   bundle: Bundle
 ): Promise<TransactionResponse> {

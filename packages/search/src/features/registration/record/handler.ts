@@ -16,6 +16,18 @@ import * as Hapi from '@hapi/hapi'
 import { ValidRecord } from '@opencrvs/commons/types'
 import { getEventType } from '@search/utils/event'
 
+import { deleteRecord } from './service'
+
+export async function deleteRecordByIdHandler(
+  request: Hapi.Request,
+  h: Hapi.ResponseToolkit
+) {
+  const recordId = request.params.recordId
+
+  await deleteRecord(recordId)
+  return h.response().code(200)
+}
+
 export async function recordHandler(
   request: Hapi.Request,
   h: Hapi.ResponseToolkit

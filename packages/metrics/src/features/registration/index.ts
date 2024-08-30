@@ -73,6 +73,7 @@ export interface IMarriageRegistrationTags {
 export interface IUserAuditTags {
   action: string | USER_ACTION
   practitionerId: string | undefined
+  transactionId: string
 }
 
 export interface IDeathRegistrationTags {

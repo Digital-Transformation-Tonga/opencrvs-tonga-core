@@ -8,16 +8,26 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-import * as Hapi from '@hapi/hapi'
-import { generateAuditPoint } from '@metrics/features/registration/pointGenerator'
-import { writePoints } from '@metrics/influxdb/client'
 import { internal } from '@hapi/boom'
-import { IUserAuditBody } from '@metrics/features/registration'
+import * as Hapi from '@hapi/hapi'
+import { USER_MANAGEMENT_URL } from '@metrics/constants'
 import { PRACTITIONER_ID } from '@metrics/features/getTimeLogged/constants'
-import { countUserAuditEvents, getUserAuditEvents } from './service'
+import { IUserAuditBody } from '@metrics/features/registration'
+import { generateAuditPoint } from '@metrics/features/registration/pointGenerator'
+import { deletePoints, writePoints } from '@metrics/influxdb/client'
 import { getClientIdFromToken } from '@metrics/utils/authUtils'
 import fetch from 'node-fetch'
-import { USER_MANAGEMENT_URL } from '@metrics/constants'
+import { countUserAuditEvents, getUserAuditEvents } from './service'
+
+export async function deletePointsByTransactionId(
+  request: Hapi.Request,
+  h: Hapi.ResponseToolkit
+) {
+  const { transactionId } = request.params
+  await deletePoints(transactionId)
+
+  return h.response().code(200)
+}
 
 export async function newAuditHandler(
   request: Hapi.Request,
@@ -29,6 +39,9 @@ export async function newAuditHandler(
       request.headers['x-real-ip'] || request.info.remoteAddress
     const userAgent =
       request.headers['x-real-user-agent'] || request.headers['user-agent']
+
+    const transactionId = request.headers['x-correlation-id']
+
     const payload = request.payload as IUserAuditBody
     let practitionerId
     if (payload.practitionerId) {
@@ -47,6 +60,7 @@ export async function newAuditHandler(
         payload.action,
         remoteAddress,
         userAgent,
+        transactionId,
         payload.additionalData
       )
     )

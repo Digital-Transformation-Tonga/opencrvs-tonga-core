@@ -24,7 +24,7 @@ import {
   generateTimeLoggedPoint
 } from '@metrics/features/registration/pointGenerator'
 import { badRequest, internal } from '@hapi/boom'
-import { populateBundleFromPayload } from '@metrics/features/registration/utils'
+
 import { Events } from '@metrics/features/metrics/constants'
 import { IPoints } from '@metrics/features/registration'
 import { createUserAuditPointFromFHIR } from '@metrics/features/audit/service'
@@ -38,6 +38,7 @@ import {
 import { EventType } from '@metrics/config/routes'
 import { fetchTaskHistory } from '@metrics/api'
 import { hasScope } from '@opencrvs/commons/authentication'
+import { SavedBundle, SavedBundleEntry } from '@opencrvs/commons/types'
 
 export async function waitingExternalValidationHandler(
   request: Hapi.Request,
@@ -46,14 +47,14 @@ export async function waitingExternalValidationHandler(
   const points = []
   try {
     points.push(
-      await generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      await generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       })
     )
     points.push(
       await generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['IN_PROGRESS', 'DECLARED', 'VALIDATED'],
         {
           Authorization: request.headers.authorization,
@@ -94,14 +95,14 @@ export async function sentForApprovalHandler(
   try {
     const points = await Promise.all([
       generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['IN_PROGRESS', 'DECLARED'],
         {
           Authorization: request.headers.authorization,
           'x-correlation-id': request.headers['x-correlation-id']
         }
       ),
-      generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       })
@@ -127,14 +128,14 @@ export async function sentNotificationForReviewHandler(
 
   try {
     points.push(
-      await generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      await generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       })
     )
     points.push(
       await generateDeclarationStartedPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         {
           Authorization: request.headers.authorization,
           'x-correlation-id': request.headers['x-correlation-id']
@@ -162,21 +163,21 @@ export async function sentNotificationHandler(
   await createUserAuditPointFromFHIR('IN_PROGRESS', request)
   try {
     const points = await generateInCompleteFieldPoints(
-      request.payload as fhir.Bundle,
+      request.payload as SavedBundle,
       {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       }
     )
     points.push(
-      await generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      await generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       })
     )
     points.push(
       await generateDeclarationStartedPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         {
           Authorization: request.headers.authorization,
           'x-correlation-id': request.headers['x-correlation-id']
@@ -201,14 +202,14 @@ export async function sentForUpdatesHandler(
   try {
     const points: IPoints[] = []
     points.push(
-      await generateRejectedPoints(request.payload as fhir.Bundle, {
+      await generateRejectedPoints(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       })
     )
     points.push(
       await generateTimeLoggedPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         {
           Authorization: request.headers.authorization,
           'x-correlation-id': request.headers['x-correlation-id']
@@ -219,7 +220,7 @@ export async function sentForUpdatesHandler(
 
     points.push(
       await generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['IN_PROGRESS', 'DECLARED', 'VALIDATED', 'WAITING_VALIDATION'],
         {
           Authorization: request.headers.authorization,
@@ -257,10 +258,7 @@ export async function markBirthRegisteredHandler(
 ) {
   await createUserAuditPointFromFHIR('REGISTERED', request)
   try {
-    const bundle = await populateBundleFromPayload(
-      request.payload as fhir.Bundle | fhir.Task,
-      request.headers.authorization
-    )
+    const bundle = request.payload as SavedBundle
 
     const points = await Promise.all([
       generateEventDurationPoint(
@@ -296,10 +294,7 @@ export async function markDeathRegisteredHandler(
   await createUserAuditPointFromFHIR('REGISTERED', request)
 
   try {
-    const bundle = await populateBundleFromPayload(
-      request.payload as fhir.Bundle | fhir.Task,
-      request.headers.authorization
-    )
+    const bundle = request.payload as SavedBundle
 
     const points = await Promise.all([
       generateEventDurationPoint(
@@ -335,7 +330,7 @@ export async function markCertifiedHandler(
   await createUserAuditPointFromFHIR('CERTIFIED', request)
   try {
     const points = await generateEventDurationPoint(
-      request.payload as fhir.Bundle,
+      request.payload as SavedBundle,
       ['REGISTERED', 'ISSUED'],
       {
         Authorization: request.headers.authorization,
@@ -359,19 +354,19 @@ export async function markIssuedHandler(
   try {
     const points = await Promise.all([
       generatePaymentPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         {
           Authorization: request.headers.authorization,
           'x-correlation-id': request.headers['x-correlation-id']
         },
         'certification'
       ),
-      generateCertificationPoint(request.payload as fhir.Bundle, {
+      generateCertificationPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization,
         'x-correlation-id': request.headers['x-correlation-id']
       }),
       generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['CERTIFIED'],
         {
           Authorization: request.headers.authorization,
@@ -387,7 +382,7 @@ export async function markIssuedHandler(
   return h.response().code(200)
 }
 
-type TaskBundleEntry = Omit<fhir.BundleEntry, 'resource'> & {
+type TaskBundleEntry = Omit<SavedBundleEntry, 'resource'> & {
   resource: fhir.Task
 }
 
@@ -395,7 +390,7 @@ export async function correctionEventHandler(
   request: Hapi.Request,
   h: Hapi.ResponseToolkit
 ) {
-  const task = getTask(request.payload as fhir.Bundle)
+  const task = getTask(request.payload as SavedBundle)
 
   if (!task) {
     return badRequest('No task found in received bundle')
@@ -441,7 +436,7 @@ async function correctionHandler(
   h: Hapi.ResponseToolkit
 ) {
   await createUserAuditPointFromFHIR('CORRECTED', request)
-  const payload = request.payload as fhir.Bundle
+  const payload = request.payload as SavedBundle
   const payment = getPaymentReconciliation(payload)
   try {
     const points = await Promise.all([
@@ -479,7 +474,7 @@ async function approveCorrectionHandler(
   h: Hapi.ResponseToolkit
 ) {
   await createUserAuditPointFromFHIR('APPROVED_CORRECTION', request)
-  const payload = request.payload as fhir.Bundle
+  const payload = request.payload as SavedBundle
   const payment = getPaymentReconciliation(payload)
 
   try {
@@ -520,13 +515,13 @@ async function rejectCorrectionHandler(
   try {
     const points = await Promise.all([
       generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['REGISTERED', 'CERTIFIED'],
         {
           Authorization: request.headers.authorization
         }
       ),
-      generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization
       })
     ])
@@ -545,17 +540,17 @@ async function requestCorrectionHandler(
   await createUserAuditPointFromFHIR('REQUESTED_CORRECTION', request)
   try {
     const points = await Promise.all([
-      generateCorrectionReasonPoint(request.payload as fhir.Bundle, {
+      generateCorrectionReasonPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization
       }),
       generateEventDurationPoint(
-        request.payload as fhir.Bundle,
+        request.payload as SavedBundle,
         ['REGISTERED', 'CERTIFIED'],
         {
           Authorization: request.headers.authorization
         }
       ),
-      generateTimeLoggedPoint(request.payload as fhir.Bundle, {
+      generateTimeLoggedPoint(request.payload as SavedBundle, {
         Authorization: request.headers.authorization
       })
     ])
@@ -611,7 +606,7 @@ export async function declarationReinstatedHandler(
   request: Hapi.Request,
   h: Hapi.ResponseToolkit
 ) {
-  const bundle = request.payload as fhir.Bundle
+  const bundle = request.payload as SavedBundle
   const task = getTask(bundle)
   const previousAction = getActionFromTask(task!)
   if (previousAction === 'IN_PROGRESS') {
@@ -641,10 +636,7 @@ export async function markMarriageRegisteredHandler(
   await createUserAuditPointFromFHIR('REGISTERED', request)
 
   try {
-    const bundle = await populateBundleFromPayload(
-      request.payload as fhir.Bundle | fhir.Task,
-      request.headers.authorization
-    )
+    const bundle = request.payload as SavedBundle
 
     const points = await Promise.all([
       generateEventDurationPoint(
