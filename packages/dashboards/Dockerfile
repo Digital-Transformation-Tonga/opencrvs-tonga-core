@@ -1,4 +1,4 @@
-FROM metabase/metabase:v0.46.6.4
+FROM metabase/metabase:v0.50.24.2
 
 ADD packages/dashboards/run.sh /
 ADD packages/dashboards/initialize-database.sh /
