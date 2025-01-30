@@ -88,9 +88,9 @@ jobs:
           context: .
           push: true
           tags: |
-            egovdigitaltonga/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}
-            egovdigitaltonga/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
-          cache-from: type=registry,ref=egovdigitaltonga/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
+            miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}
+            miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
+          cache-from: type=registry,ref=miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
           cache-to: type=inline
 
     outputs:
@@ -130,7 +130,7 @@ jobs:
           push: true
           context: .
           tags: |
-            egovdigitaltonga/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}
-            egovdigitaltonga/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
-          cache-from: type=registry,ref=egovdigitaltonga/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
+            miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}
+            miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
+          cache-from: type=registry,ref=miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
           cache-to: type=inline
