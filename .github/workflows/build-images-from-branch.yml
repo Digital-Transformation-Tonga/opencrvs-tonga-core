@@ -127,6 +127,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.base.outputs.version }}
             BRANCH=${{ needs.base.outputs.branch }}
+            DOCKER_ORGID=${{ vars.docker_org }}
           push: true
           context: .
           tags: |
