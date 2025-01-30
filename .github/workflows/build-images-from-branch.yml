@@ -88,9 +88,9 @@ jobs:
           context: .
           push: true
           tags: |
-            miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}
-            miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
-          cache-from: type=registry,ref=miyuruvs1bv/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
+            ${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}
+            ${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
+          cache-from: type=registry,ref=${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}
           cache-to: type=inline
 
     outputs:
@@ -130,7 +130,7 @@ jobs:
           push: true
           context: .
           tags: |
-            miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}
-            miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
-          cache-from: type=registry,ref=miyuruvs1bv/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
+            ${{ vars.docker_org }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}
+            ${{ vars.docker_org }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
+          cache-from: type=registry,ref=${{ vars.docker_org }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}
           cache-to: type=inline
