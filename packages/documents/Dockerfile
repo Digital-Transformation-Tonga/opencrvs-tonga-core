@@ -1,5 +1,6 @@
 ARG  BRANCH=develop
-FROM opencrvs/ocrvs-base:${BRANCH}
+ARG  DOCKER_ORGID=opencrvs
+FROM ${DOCKER_ORGID}/ocrvs-base:${BRANCH}
 
 USER node
 
