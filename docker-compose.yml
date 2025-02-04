@@ -8,7 +8,7 @@
 # Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
 services:
   base:
-    image: ${docker_orgid}/ocrvs-base:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-base:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -16,7 +16,7 @@ services:
     deploy:
       replicas: 0
   client:
-    image: ${docker_orgid}/ocrvs-client:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-client:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -28,7 +28,7 @@ services:
       - COUNTRY_CONFIG_URL_INTERNAL=http://countryconfig:3040
       - GATEWAY_URL_INTERNAL=http://gateway:7070
   dashboards:
-    image: ${docker_orgid}/ocrvs-dashboards:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-dashboards:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -38,7 +38,7 @@ services:
       - base
 
   login:
-    image: ${docker_orgid}/ocrvs-login:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-login:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -50,7 +50,7 @@ services:
       - COUNTRY_CONFIG_URL_INTERNAL=http://countryconfig:3040
 
   gateway:
-    image: ${docker_orgid}/ocrvs-gateway:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-gateway:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -80,7 +80,7 @@ services:
       - DOCUMENTS_URL=http://documents:9050
 
   events:
-    image: ${docker_orgid}/ocrvs-events:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-events:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -98,7 +98,7 @@ services:
       - AUTH_URL=http://auth:4040
   # User facing services
   workflow:
-    image: ${docker_orgid}/ocrvs-workflow:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-workflow:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -120,7 +120,7 @@ services:
       - AUTH_URL=http://auth:4040
       - COUNTRY=${COUNTRY:-bgd} # PEN_TEST change to gbr
   search:
-    image: ${docker_orgid}/ocrvs-search:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-search:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -136,7 +136,7 @@ services:
       - FHIR_URL=http://hearth:3447/fhir
       - APPLICATION_CONFIG_URL=http://config:2021/
   metrics:
-    image: ${docker_orgid}/ocrvs-metrics:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-metrics:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -159,7 +159,7 @@ services:
       - FHIR_URL=http://hearth:3447/fhir
   # END User facing services
   scheduler:
-    image: ${docker_orgid}/ocrvs-scheduler:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-scheduler:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -171,7 +171,7 @@ services:
       - METRICS_URL=http://metrics:1050
       - OPENHIM_MONGO_URL=mongodb://mongo1/openhim-dev
   auth:
-    image: ${docker_orgid}/ocrvs-auth:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-auth:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -188,7 +188,7 @@ services:
       - METRICS_URL=http://metrics:1050
       - COUNTRY_CONFIG_URL_INTERNAL=http://countryconfig:3040
   user-mgnt:
-    image: ${docker_orgid}/ocrvs-user-mgnt:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-user-mgnt:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -205,7 +205,7 @@ services:
       - APPLICATION_CONFIG_URL=http://config:2021/
       - DOCUMENTS_URL=http://documents:9050
   webhooks:
-    image: ${docker_orgid}/ocrvs-webhooks:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-webhooks:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -222,7 +222,7 @@ services:
       - CHECK_INVALID_TOKEN=true
       - FHIR_URL=http://hearth:3447/fhir
   notification:
-    image: ${docker_orgid}/ocrvs-notification:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-notification:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -235,7 +235,7 @@ services:
       - HOST=0.0.0.0
       - COUNTRY_CONFIG_URL=http://countryconfig:3040
   config:
-    image: ${docker_orgid}/ocrvs-config:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-config:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -257,7 +257,7 @@ services:
       - DOCUMENTS_URL=http://documents:9050
       - CHECK_INVALID_TOKEN=true
   migration:
-    image: ${docker_orgid}/ocrvs-migration:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-migration:${VERSION}
     #platform: linux/amd64
     build:
       context: .
@@ -278,7 +278,7 @@ services:
       - INFLUX_DB=ocrvs
       - WAIT_HOSTS=mongo1:27017,influxdb:8086,minio:9000,elasticsearch:9200
   documents:
-    image: ${docker_orgid}/ocrvs-documents:${VERSION}
+    image: ${DOCKER_ORGID}/ocrvs-documents:${VERSION}
     #platform: linux/amd64
     build:
       context: .
