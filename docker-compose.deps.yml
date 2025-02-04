@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   hearth:
-    image: ${DOCKER_ORGID}/hearth:1.1.0
+    image: opencrvs/hearth:1.1.0
     environment:
       - mongodb__url=mongodb://mongo1/hearth-dev
       - logger__level=warn
