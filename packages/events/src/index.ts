@@ -19,6 +19,7 @@ import { appRouter } from './router/router'
 import { createHTTPServer } from '@trpc/server/adapters/standalone'
 import { getUserId, TokenWithBearer } from '@opencrvs/commons/authentication'
 import { TRPCError } from '@trpc/server'
+
 import { getUser, logger } from '@opencrvs/commons'
 import { env } from './environment'
 import { getEventConfigurations } from './service/config/config'
@@ -79,7 +80,7 @@ export async function main() {
       process.exit(1)
     }
     /*
-     * SIGUSR2 tells nodemon to restart the process with waiting for new file changes
+     * SIGUSR2 tells nodemon to restart the process without waiting for new file changes
      */
     setTimeout(() => process.kill(process.pid, 'SIGUSR2'), 3000)
     return

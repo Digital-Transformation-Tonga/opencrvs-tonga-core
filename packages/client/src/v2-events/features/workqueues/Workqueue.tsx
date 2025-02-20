@@ -9,9 +9,9 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { mapKeys, orderBy } from 'lodash'
 import React, { useState } from 'react'
-import { useIntl } from 'react-intl'
+import { mapKeys, orderBy } from 'lodash'
+import { defineMessages, useIntl } from 'react-intl'
 import ReactTooltip from 'react-tooltip'
 import styled, { useTheme } from 'styled-components'
 
@@ -20,11 +20,12 @@ import { useTypedSearchParams } from 'react-router-typesafe-routes/dom'
 
 import {
   defaultColumns,
+  EventConfig,
   EventIndex,
-  RootWorkqueueConfig,
-  workqueues,
   getAllFields,
-  EventConfig
+  getOrThrow,
+  RootWorkqueueConfig,
+  workqueues
 } from '@opencrvs/commons/client'
 import { useWindowSize } from '@opencrvs/components/lib/hooks'
 import {
@@ -35,19 +36,21 @@ import {
 import { IconWithName } from '@client/v2-events/components/IconWithName'
 import { useEventConfigurations } from '@client/v2-events/features/events/useEventConfiguration'
 import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents'
-import { messages } from '@client/v2-events/messages'
+
+import { formattedDuration } from '@client/utils/date-formatting'
+import { setEmptyValuesForFields } from '@client/v2-events/components/forms/utils'
 import { ROUTES } from '@client/v2-events/routes'
-import { getInitialValues } from '@client/v2-events/components/forms/utils'
+import { withSuspense } from '@client/v2-events/components/withSuspense'
 import { WQContentWrapper } from './components/ContentWrapper'
 import { useIntlFormatMessageWithFlattenedParams } from './utils'
 
-function getOrThrow<T>(x: T, message: string) {
-  if (x === undefined || x === null) {
-    throw new Error(message)
+const messages = defineMessages({
+  empty: {
+    defaultMessage: 'Empty message',
+    description: 'Label for workqueue tooltip',
+    id: 'v2.regHome.issued'
   }
-
-  return x
-}
+})
 
 /**
  * Based on packages/client/src/views/OfficeHome/requiresUpdate/RequiresUpdate.tsx and others in the same directory.
@@ -86,11 +89,14 @@ function changeSortedColumn(
   }
 }
 
-export function WorkqueueIndex({ workqueueId }: { workqueueId: string }) {
+function WorkqueueContainer() {
+  // @TODO: We need to revisit on how the workqueue id is passed.
+  // We'll follow up during 'workqueue' feature.
+  const workqueueId = 'all'
   const { getEvents } = useEvents()
-  const [searchParams] = useTypedSearchParams(ROUTES.V2.WORKQUEUE)
+  const [searchParams] = useTypedSearchParams(ROUTES.V2.WORKQUEUES.WORKQUEUE)
 
-  const events = (getEvents.useQuery().data ?? []) satisfies EventIndex[]
+  const [events] = getEvents.useSuspenseQuery()
   const eventConfigs = useEventConfigurations()
 
   const workqueueConfig =
@@ -182,7 +188,9 @@ function Workqueue({
         return event.status
       }
 
-      const initialValues = getInitialValues(getAllFields(eventConfig))
+      const allPropertiesWithEmptyValues = setEmptyValuesForFields(
+        getAllFields(eventConfig)
+      )
 
       const eventWorkqueue = getOrThrow(
         eventConfig.workqueues.find((wq) => wq.id === workqueueConfig.id),
@@ -194,7 +202,7 @@ function Workqueue({
           (acc, field) => ({
             ...acc,
             [field.column]: flattenedIntl.formatMessage(field.label, {
-              ...initialValues,
+              ...allPropertiesWithEmptyValues,
               ...event
             })
           }),
@@ -207,8 +215,8 @@ function Workqueue({
         ...fieldsWithPopulatedValues,
         ...event,
         event: intl.formatMessage(eventConfig.label),
-        createdAt: intl.formatDate(new Date(event.createdAt)),
-        modifiedAt: intl.formatDate(new Date(event.modifiedAt)),
+        createdAt: formattedDuration(new Date(event.createdAt)),
+        modifiedAt: formattedDuration(new Date(event.modifiedAt)),
 
         status: intl.formatMessage(
           {
@@ -255,14 +263,11 @@ function Workqueue({
   }
 
   function getDefaultColumns(): Array<Column> {
-    // @TODO: Markus should update the types
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return workqueueConfig.defaultColumns.map(
       (column): Column => ({
         label:
           column in defaultColumns
             ? intl.formatMessage(
-                // eslint-disable-next-line
                 defaultColumns[column as keyof typeof defaultColumns].label
               )
             : '',
@@ -277,9 +282,7 @@ function Workqueue({
   // @TODO: separate types for action button vs other columns
   function getColumns(): Array<Column> {
     if (width > theme.grid.breakpoints.lg) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return workqueueConfig.columns.map((column) => ({
-        // eslint-disable-next-line
         label: intl.formatMessage(column.label),
         width: 35,
         key: column.id,
@@ -287,10 +290,8 @@ function Workqueue({
         isSorted: sortedCol === column.id
       }))
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return workqueueConfig.columns
         .map((column) => ({
-          // eslint-disable-next-line
           label: intl.formatMessage(column.label),
           width: 35,
           key: column.id,
@@ -332,3 +333,5 @@ function Workqueue({
     </WQContentWrapper>
   )
 }
+
+export const WorkqueueIndex = withSuspense(WorkqueueContainer)

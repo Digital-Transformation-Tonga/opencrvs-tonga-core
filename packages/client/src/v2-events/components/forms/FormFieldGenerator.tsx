@@ -11,31 +11,51 @@
 
 /* eslint-disable */
 import { InputField } from '@client/components/form/InputField'
-import { DATE, IFormFieldValue, PARAGRAPH, TEXT } from '@client/forms'
-import { DateField } from '@opencrvs/components/lib/DateField'
-import { Text } from '@opencrvs/components/lib/Text'
-import { TextInput } from '@opencrvs/components/lib/TextInput'
+import { TEXT } from '@client/forms'
+import { Text as TextComponent } from '@opencrvs/components/lib/Text'
+import { TextArea } from '@opencrvs/components/lib/TextArea'
+import { SignatureUploader } from '@client/components/form/SignatureField/SignatureUploader'
 import * as React from 'react'
 
 import styled, { keyframes } from 'styled-components'
 import {
   evalExpressionInFieldDefinition,
-  getConditionalActionsForField,
+  FIELD_SEPARATOR,
   getDependentFields,
   handleInitialValue,
-  hasInitialValueDependencyInfo
+  hasInitialValueDependencyInfo,
+  makeDatesFormatted
 } from './utils'
 import { Errors, getValidationErrorsForForm } from './validation'
 
 import {
   ActionFormData,
-  CheckboxFieldValue,
   FieldConfig,
+  FieldType,
   FieldValue,
   FileFieldValue,
-  LocationFieldValue,
-  RadioGroupFieldValue,
-  SelectFieldValue
+  FileFieldWithOptionValue,
+  isAddressFieldType,
+  isAdministrativeAreaFieldType,
+  isFacilityFieldType,
+  isBulletListFieldType,
+  isCheckboxFieldType,
+  isCountryFieldType,
+  isDateFieldType,
+  isDividerFieldType,
+  isFieldDisabled,
+  isFieldHidden,
+  isFileFieldType,
+  isFileFieldWithOptionType,
+  isLocationFieldType,
+  isOfficeFieldType,
+  isPageHeaderFieldType,
+  isParagraphFieldType,
+  isRadioGroupFieldType,
+  isSelectFieldType,
+  isSignatureFieldType,
+  isTextAreaFieldType,
+  isTextFieldType
 } from '@opencrvs/commons/client'
 import {
   Field,
@@ -51,16 +71,25 @@ import {
   MessageDescriptor,
   useIntl
 } from 'react-intl'
-import { FileInput } from './inputs/FileInput/FileInput'
+import { File } from './inputs/FileInput/FileInput'
 
-import { BulletList } from '@client/v2-events/features/events/registered-fields/BulletList'
-import { Checkbox } from '@client/v2-events/features/events/registered-fields/Checkbox'
-import { Select } from '@client/v2-events/features/events/registered-fields/Select'
-import { SelectCountry } from '@client/v2-events/features/events/registered-fields/SelectCountry'
-import { Location } from '@client/v2-events/features/events/registered-fields/Location'
-import { RadioGroup } from '@client/v2-events/features/events/registered-fields'
-import { LocationSearch } from '@client/v2-events/features/events/registered-fields/LocationSearch'
+import {
+  BulletList,
+  Checkbox,
+  Date as DateField,
+  RadioGroup,
+  LocationSearch,
+  Select,
+  SelectCountry,
+  Text,
+  AdministrativeArea
+} from '@client/v2-events/features/events/registered-fields'
+
+import { SubHeader } from '@opencrvs/components'
 import { formatISO } from 'date-fns'
+import { Divider } from '@opencrvs/components'
+import { Address } from '@client/v2-events/features/events/registered-fields/Address'
+import { FileWithOption } from './inputs/FileInput/DocumentUploaderWithOption'
 
 const fadeIn = keyframes`
   from { opacity: 0; }
@@ -75,8 +104,8 @@ const FormItem = styled.div<{
     ignoreBottomMargin ? '0px' : '22px'};
 `
 
-interface GeneratedInputFieldProps<FieldType extends FieldConfig> {
-  fieldDefinition: FieldType
+interface GeneratedInputFieldProps<T extends FieldConfig> {
+  fieldDefinition: T
   fields: FieldConfig[]
   values: ActionFormData
   setFieldValue: (name: string, value: FieldValue | undefined) => void
@@ -84,7 +113,7 @@ interface GeneratedInputFieldProps<FieldType extends FieldConfig> {
   onChange: (e: React.ChangeEvent) => void
   onBlur: (e: React.FocusEvent) => void
   resetDependentSelectValues: (name: string) => void
-  value: IFormFieldValue
+  value: FieldValue
   touched: boolean
   error: string
   formData: ActionFormData
@@ -95,7 +124,7 @@ interface GeneratedInputFieldProps<FieldType extends FieldConfig> {
 }
 
 const GeneratedInputField = React.memo(
-  <FieldType extends FieldConfig>({
+  <T extends FieldConfig>({
     fieldDefinition,
     onChange,
     onBlur,
@@ -110,12 +139,14 @@ const GeneratedInputField = React.memo(
     requiredErrorMessage,
     fields,
     values
-  }: GeneratedInputFieldProps<FieldType>) => {
+  }: GeneratedInputFieldProps<T>) => {
     const intl = useIntl()
 
     const inputFieldProps = {
       id: fieldDefinition.id,
-      label: intl.formatMessage(fieldDefinition.label),
+      label: fieldDefinition.hideLabel
+        ? undefined
+        : intl.formatMessage(fieldDefinition.label),
       // helperText: fieldDefinition.helperText,
       // tooltip: fieldDefinition.tooltip,
       // description: fieldDefinition.description,
@@ -150,19 +181,38 @@ const GeneratedInputField = React.memo(
       [fieldDefinition.id, setFieldValue]
     )
 
-    if (fieldDefinition.type === DATE) {
+    const handleFileWithOptionChange = React.useCallback(
+      (value: FileFieldWithOptionValue | undefined) =>
+        setFieldValue(fieldDefinition.id, value),
+      [fieldDefinition.id, setFieldValue]
+    )
+
+    /**
+     * Combines the field definition with the current value and input field props
+     * USED FOR: rendering the correct input field based on the FieldConfig guards
+     */
+    const field = {
+      inputFieldProps,
+      config: fieldDefinition,
+      value
+    }
+
+    if (isDateFieldType(field)) {
       return (
-        <InputField {...inputFieldProps}>
-          <DateField
+        <InputField {...field.inputFieldProps}>
+          <DateField.Input
             {...inputProps}
-            value={value as string}
+            value={field.value}
             onChange={(val: string) => setFieldValue(fieldDefinition.id, val)}
           />
         </InputField>
       )
     }
+    if (isPageHeaderFieldType(field)) {
+      return <SubHeader>{intl.formatMessage(fieldDefinition.label)}</SubHeader>
+    }
 
-    if (fieldDefinition.type === PARAGRAPH) {
+    if (isParagraphFieldType(field)) {
       const label = fieldDefinition.label as unknown as MessageDescriptor & {
         values: Record<string, string>
       }
@@ -170,108 +220,220 @@ const GeneratedInputField = React.memo(
 
       const message = intl.formatMessage(label, {
         ...values,
-        [fieldDefinition.id]: value as any
+        [fieldDefinition.id]: field.value
       })
 
       return (
-        <Text
+        <TextComponent
           element="p"
-          variant={fieldDefinition.options.fontVariant ?? 'reg16'}
+          variant={field.config.configuration?.styles?.fontVariant ?? 'reg16'}
         >
           <span dangerouslySetInnerHTML={{ __html: message }} />
-        </Text>
+        </TextComponent>
       )
     }
 
-    if (fieldDefinition.type === TEXT) {
+    if (isTextFieldType(field)) {
       return (
-        <InputField {...inputFieldProps}>
-          <TextInput
-            type={fieldDefinition.options?.type ?? 'text'}
+        <InputField
+          {...inputFieldProps}
+          prefix={
+            field.config.configuration?.prefix &&
+            intl.formatMessage(field.config.configuration?.prefix)
+          }
+          postfix={
+            field.config.configuration?.postfix &&
+            intl.formatMessage(field.config.configuration?.postfix)
+          }
+        >
+          <Text.Input
+            type={field.config.configuration?.type ?? 'text'}
             {...inputProps}
             isDisabled={disabled}
-            maxLength={fieldDefinition.options?.maxLength}
-            value={inputProps.value as string}
+            maxLength={field.config.configuration?.maxLength}
+            value={field.value}
           />
         </InputField>
       )
     }
-    if (fieldDefinition.type === 'FILE') {
-      const value = formData[fieldDefinition.id] as FileFieldValue
+
+    if (isTextAreaFieldType(field)) {
+      return (
+        <InputField
+          {...inputFieldProps}
+          prefix={
+            field.config.configuration?.prefix &&
+            intl.formatMessage(field.config.configuration?.prefix)
+          }
+          postfix={
+            field.config.configuration?.postfix &&
+            intl.formatMessage(field.config.configuration?.postfix)
+          }
+        >
+          <TextArea
+            {...inputProps}
+            disabled={disabled}
+            maxLength={field.config.configuration?.maxLength}
+            value={field.value}
+          />
+        </InputField>
+      )
+    }
+
+    if (isFileFieldType(field)) {
       return (
         <InputField {...inputFieldProps}>
-          <FileInput
+          <File.Input
             {...inputProps}
-            value={value}
+            value={field.value}
             onChange={handleFileChange}
+            fullWidth={field.config.options?.style.fullWidth}
           />
         </InputField>
       )
     }
-    if (fieldDefinition.type === 'BULLET_LIST') {
-      return <BulletList {...fieldDefinition} />
-    }
-    if (fieldDefinition.type === 'SELECT') {
+    if (isBulletListFieldType(field)) {
       return (
-        <Select
-          {...fieldDefinition}
-          value={inputProps.value as SelectFieldValue}
-          onChange={(val: string) => setFieldValue(fieldDefinition.id, val)}
-        />
+        <InputField {...inputFieldProps}>
+          <BulletList {...field.config} />
+        </InputField>
       )
     }
-    if (fieldDefinition.type === 'COUNTRY') {
+    if (isAddressFieldType(field)) {
       return (
-        <SelectCountry
-          {...fieldDefinition}
-          value={inputProps.value as SelectFieldValue}
-          setFieldValue={setFieldValue}
-        />
+        <InputField {...inputFieldProps}>
+          <Address.Input
+            value={field.value}
+            onChange={(val) => setFieldValue(fieldDefinition.id, val)}
+            {...field.config}
+          />
+        </InputField>
       )
     }
-    if (fieldDefinition.type === 'CHECKBOX') {
+    if (isSelectFieldType(field)) {
       return (
-        <Checkbox
-          {...fieldDefinition}
-          value={value as CheckboxFieldValue}
-          setFieldValue={setFieldValue}
-        />
+        <InputField {...inputFieldProps}>
+          <Select.Input
+            {...field.config}
+            value={field.value}
+            onChange={(val: string) => setFieldValue(fieldDefinition.id, val)}
+          />
+        </InputField>
       )
     }
-    if (fieldDefinition.type === 'RADIO_GROUP') {
+    if (isCountryFieldType(field)) {
       return (
-        <RadioGroup
-          {...fieldDefinition}
-          value={value as RadioGroupFieldValue}
-          setFieldValue={setFieldValue}
-        />
-      )
-    }
-    if (fieldDefinition.type === 'LOCATION') {
-      if (fieldDefinition.options.type === 'HEALTH_FACILITY')
-        return (
-          <LocationSearch
-            {...fieldDefinition}
-            value={value as LocationFieldValue}
+        <InputField {...inputFieldProps}>
+          <SelectCountry.Input
+            {...field.config}
+            value={field.value}
             setFieldValue={setFieldValue}
           />
-        )
+        </InputField>
+      )
+    }
+    if (isCheckboxFieldType(field)) {
       return (
-        <Location
-          {...fieldDefinition}
-          value={value as LocationFieldValue}
+        <Checkbox.Input
+          {...field.config}
+          value={field.value}
           setFieldValue={setFieldValue}
-          partOf={
-            (fieldDefinition.options?.partOf?.$data &&
-              (makeFormikFieldIdsOpenCRVSCompatible(formData)[
-                fieldDefinition.options?.partOf.$data
-              ] as string | undefined | null)) ??
-            null
-          }
         />
       )
     }
-    throw new Error(`Unsupported field ${fieldDefinition}`)
+    if (isRadioGroupFieldType(field)) {
+      return (
+        <InputField {...inputFieldProps}>
+          <RadioGroup.Input
+            {...field.config}
+            value={field.value}
+            setFieldValue={setFieldValue}
+          />
+        </InputField>
+      )
+    }
+
+    if (isSignatureFieldType(field)) {
+      return (
+        <InputField {...inputFieldProps}>
+          <SignatureUploader
+            name={fieldDefinition.id}
+            value={field.value}
+            onChange={(val: string) => setFieldValue(fieldDefinition.id, val)}
+            modalTitle={intl.formatMessage(field.config.signaturePromptLabel)}
+          />
+        </InputField>
+      )
+    }
+
+    if (isAdministrativeAreaFieldType(field)) {
+      return (
+        <InputField {...inputFieldProps}>
+          <AdministrativeArea.Input
+            {...field.config}
+            value={field.value}
+            partOf={
+              (field.config.configuration?.partOf?.$data &&
+                (makeFormikFieldIdsOpenCRVSCompatible(formData)[
+                  field.config.configuration?.partOf.$data
+                ] as string | undefined | null)) ??
+              null
+            }
+            setFieldValue={setFieldValue}
+          />
+        </InputField>
+      )
+    }
+
+    if (isLocationFieldType(field)) {
+      return (
+        <LocationSearch.Input
+          {...field.config}
+          value={field.value}
+          searchableResource={['locations']}
+          setFieldValue={setFieldValue}
+        />
+      )
+    }
+
+    if (isOfficeFieldType(field)) {
+      return (
+        <LocationSearch.Input
+          {...field.config}
+          value={field.value}
+          searchableResource={['offices']}
+          setFieldValue={setFieldValue}
+        />
+      )
+    }
+
+    if (isFacilityFieldType(field)) {
+      return (
+        <LocationSearch.Input
+          {...field.config}
+          value={field.value}
+          searchableResource={['facilities']}
+          setFieldValue={setFieldValue}
+        />
+      )
+    }
+    if (isDividerFieldType(field)) {
+      return <Divider />
+    }
+    if (isFileFieldWithOptionType(field)) {
+      return (
+        <InputField {...inputFieldProps}>
+          <FileWithOption.Input
+            {...inputProps}
+            value={field.value ?? []}
+            onChange={handleFileWithOptionChange}
+            options={field.config.options}
+          />
+        </InputField>
+      )
+    }
+
+    throw new Error(`Unsupported field ${JSON.stringify(fieldDefinition)}`)
   }
 )
 
@@ -300,7 +462,11 @@ interface ExposedProps {
   initialValues?: ActionFormData
 }
 
-type AllProps = ExposedProps & IntlShapeProps & FormikProps<ActionFormData>
+type AllProps = ExposedProps &
+  IntlShapeProps &
+  FormikProps<ActionFormData> & {
+    className?: string
+  }
 
 class FormSectionComponent extends React.Component<AllProps> {
   componentDidUpdate(prevProps: AllProps) {
@@ -415,20 +581,24 @@ class FormSectionComponent extends React.Component<AllProps> {
       setFieldTouched,
       touched,
       intl,
+      className,
       formData
     } = this.props
 
     const language = this.props.intl.locale
 
-    const errors = this.props.errors as unknown as Errors
+    const errors = makeFormFieldIdsFormikCompatible(
+      this.props.errors as unknown as Errors
+    )
 
     const fields = fieldsWithDotIds.map((field) => ({
       ...field,
       id: field.id.replaceAll('.', FIELD_SEPARATOR)
     }))
+    const valuesWithFormattedDate = makeDatesFormatted(fieldsWithDotIds, values)
 
     return (
-      <section>
+      <section className={className}>
         {fields.map((field) => {
           let error: string
           const fieldErrors = errors[field.id] && errors[field.id].errors
@@ -438,22 +608,24 @@ class FormSectionComponent extends React.Component<AllProps> {
             error = intl.formatMessage(firstError.message, firstError.props)
           }
 
-          const conditionalActions: string[] = getConditionalActionsForField(
-            field,
-            {
-              $form: makeFormikFieldIdsOpenCRVSCompatible(values),
-              $now: formatISO(new Date(), { representation: 'date' })
-            }
-          )
+          const formParams = {
+            $form: makeFormikFieldIdsOpenCRVSCompatible(
+              valuesWithFormattedDate
+            ),
+            $now: formatISO(new Date(), { representation: 'date' })
+          }
 
-          if (conditionalActions.includes('HIDE')) {
+          if (isFieldHidden(field, formParams)) {
             return null
           }
 
-          const isFieldDisabled = conditionalActions.includes('disable')
+          const isDisabled = isFieldDisabled(field, formParams)
 
           return (
-            <FormItem key={`${field.id}${language}`}>
+            <FormItem
+              ignoreBottomMargin={field.type === FieldType.PAGE_HEADER}
+              key={`${field.id}${language}`}
+            >
               <Field name={field.id}>
                 {(formikFieldProps: FieldProps<any>) => {
                   return (
@@ -465,15 +637,11 @@ class FormSectionComponent extends React.Component<AllProps> {
                       setFieldTouched={setFieldTouched}
                       setFieldValue={this.setFieldValuesWithDependency}
                       {...formikFieldProps.field}
-                      disabled={isFieldDisabled}
-                      error={isFieldDisabled ? '' : error}
+                      disabled={isDisabled}
+                      error={isDisabled ? '' : error}
                       fields={fields}
                       formData={formData}
-                      touched={
-                        makeFormikFieldIdsOpenCRVSCompatible(touched)[
-                          field.id
-                        ] || false
-                      }
+                      touched={touched[field.id] || false}
                       values={values}
                       onUploadingStateChanged={
                         this.props.onUploadingStateChanged
@@ -495,7 +663,6 @@ class FormSectionComponent extends React.Component<AllProps> {
  * Because our form field ids can have dots in them, we temporarily transform those dots
  * to a different character before passing the data to Formik. This function unflattens
  */
-const FIELD_SEPARATOR = '____'
 function makeFormFieldIdsFormikCompatible<T>(data: Record<string, T>) {
   return Object.fromEntries(
     Object.entries(data).map(([key, value]) => [
@@ -534,8 +701,7 @@ export const FormFieldGenerator: React.FC<ExposedProps> = (props) => {
       validate={(values) =>
         getValidationErrorsForForm(
           props.fields,
-          makeFormikFieldIdsOpenCRVSCompatible(values),
-          props.requiredErrorMessage
+          makeFormikFieldIdsOpenCRVSCompatible(values)
         )
       }
       onSubmit={() => {}}

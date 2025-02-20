@@ -24,6 +24,7 @@ import { storage } from '@client/storage'
 import { getToken } from '@client/utils/authUtils'
 
 export const api = createTRPCReact<AppRouter>()
+export { AppRouter }
 
 function getTrpcClient() {
   return api.createClient({
@@ -74,7 +75,7 @@ function createIDBPersister(idbValidKey = 'reactQuery') {
   } satisfies Persister
 }
 
-const trpcClient = getTrpcClient()
+export const trpcClient = getTrpcClient()
 const persister = createIDBPersister()
 
 export const queryClient = getQueryClient()

@@ -22,22 +22,23 @@ import { useModal } from '@client/v2-events/hooks/useModal'
 import { useEventFormNavigation } from '@client/v2-events/features/events/useEventFormNavigation'
 import { useEventConfiguration } from '@client/v2-events/features/events/useEventConfiguration'
 import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
+import { useEventMetadata } from '@client/v2-events/features/events/useEventMeta'
 import { FormLayout } from '@client/v2-events/layouts/form'
 
 const messages = defineMessages({
   registerActionTitle: {
-    id: 'registerAction.title',
+    id: 'v2.registerAction.title',
     defaultMessage: 'Register member',
     description: 'The title for register action'
   },
   registerActionDescription: {
-    id: 'registerAction.description',
+    id: 'v2.registerAction.description',
     defaultMessage:
       'By clicking register, you confirm that the information entered is correct and the member can be registered.',
     description: 'The description for register action'
   },
   registerActionDeclare: {
-    id: 'registerAction.Declare',
+    id: 'v2.registerAction.Declare',
     defaultMessage: 'Register',
     description: 'The label for declare button of register action'
   }
@@ -57,14 +58,20 @@ export function Review() {
 
   const [event] = events.getEvent.useSuspenseQuery(eventId)
 
+  const { setMetadata, getMetadata } = useEventMetadata()
+  const metadata = getMetadata(
+    eventId,
+    event.actions.find((a) => a.type === 'DECLARE')?.metadata
+  )
   const { eventConfiguration: config } = useEventConfiguration(event.type)
 
   const { forms: formConfigs } = config.actions.filter(
     (action) => action.type === ActionType.REGISTER
   )[0]
 
-  const setFormValues = useEventFormData((state) => state.setFormValues)
+  const setFormValues = useEventFormData((state) => state.setFormValuesIfEmpty)
   const getFormValues = useEventFormData((state) => state.getFormValues)
+  const previousFormValues = getCurrentEventState(event).data
 
   useEffect(() => {
     setFormValues(eventId, getCurrentEventState(event).data)
@@ -74,14 +81,18 @@ export function Review() {
 
   async function handleEdit({
     pageId,
-    fieldId
+    fieldId,
+    confirmation
   }: {
     pageId: string
     fieldId?: string
+    confirmation?: boolean
   }) {
-    const confirmedEdit = await openModal<boolean | null>((close) => (
-      <ReviewComponent.EditModal close={close} />
-    ))
+    const confirmedEdit =
+      confirmation ||
+      (await openModal<boolean | null>((close) => (
+        <ReviewComponent.EditModal close={close} />
+      )))
 
     if (confirmedEdit) {
       navigate(
@@ -105,7 +116,8 @@ export function Review() {
       registerMutation.mutate({
         eventId: event.id,
         data: form,
-        transactionId: uuid()
+        transactionId: uuid(),
+        metadata
       })
 
       goToHome()
@@ -120,7 +132,8 @@ export function Review() {
           eventId: event.id,
           data: form,
           transactionId: uuid(),
-          draft: true
+          draft: true,
+          metadata
         })
         goToHome()
       }}
@@ -129,8 +142,12 @@ export function Review() {
         eventConfig={config}
         form={form}
         formConfig={formConfigs[0]}
+        isUploadButtonVisible={true}
+        metadata={metadata}
+        previousFormValues={previousFormValues}
         title=""
         onEdit={handleEdit}
+        onMetadataChange={(values) => setMetadata(eventId, values)}
       >
         <ReviewComponent.Actions
           messages={{
