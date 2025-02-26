@@ -17,19 +17,9 @@ ENV GATEWAY_URL_INTERNAL "{{GATEWAY_URL_INTERNAL}}"
 
 WORKDIR /app/packages/client
 COPY --chown=node:node packages/client /app/packages/client
-COPY --chown=node:node patches/ patches/
+COPY --chown=node:node patches/ /app/patches/
 
-RUN cat package.json
-
-RUN yarn install --check-files  --verbose
-
-RUN ls -lha
-RUN ls -lha ../
-RUN ls -lha ../../
-RUN ls -lha node_modules
-RUN ls -lha node_modules/pdfmake/build/pdfmake.js
-
-RUN yarn build
+RUN yarn install --frozen-lockfile && yarn build
 
 FROM nginx:1.27
 RUN apt-get update && apt-get upgrade -y
