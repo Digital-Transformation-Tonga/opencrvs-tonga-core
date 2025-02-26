@@ -19,7 +19,7 @@ WORKDIR /app/packages/client
 COPY --chown=node:node packages/client /app/packages/client
 COPY --chown=node:node patches/ patches/
 
-RUN yarn install --frozen-lockfile
+RUN yarn install
 
 RUN ls -lha
 RUN ls -lha ../
