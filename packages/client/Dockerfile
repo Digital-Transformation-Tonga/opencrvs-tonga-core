@@ -19,6 +19,8 @@ WORKDIR /app/packages/client
 COPY --chown=node:node packages/client /app/packages/client
 COPY --chown=node:node patches/ patches/
 
+RUN cat package.json
+
 RUN yarn install
 
 RUN ls -lha
