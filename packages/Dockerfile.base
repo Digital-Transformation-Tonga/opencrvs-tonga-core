@@ -11,6 +11,7 @@ WORKDIR /app
 
 COPY --chown=node:node *.json .
 COPY --chown=node:node yarn.lock .
+COPY --chown=node:node patches/ patches/
 
 RUN yarn install --production --frozen-lockfile
 
