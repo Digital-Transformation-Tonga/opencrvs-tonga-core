@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       branch_name:
-        default: develop
+        default: tonga/devops
         required: true
         description: Branch to build from
   push:
