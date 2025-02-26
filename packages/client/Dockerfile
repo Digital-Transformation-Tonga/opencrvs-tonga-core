@@ -21,9 +21,11 @@ COPY --chown=node:node patches/ patches/
 
 RUN pwd
 RUN ls -lha
+RUN ls -lha ../
+RUN ls -lha ../../
+RUN ls -lha node_modules
 RUN ls -lha node_modules/pdfmake/build/pdfmake.js
 RUN ls -lha node_modules/pdfmake/
-RUN ls -lha node_modules
 
 RUN yarn install --frozen-lockfile && yarn build
 
