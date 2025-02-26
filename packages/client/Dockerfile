@@ -21,7 +21,7 @@ COPY --chown=node:node patches/ patches/
 
 RUN cat package.json
 
-RUN yarn install
+RUN yarn install --check-files
 
 RUN ls -lha
 RUN ls -lha ../
