@@ -10,40 +10,51 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import { defineMessages, MessageDescriptor, useIntl } from 'react-intl'
-import styled from 'styled-components'
 import { useSelector } from 'react-redux'
-import {
-  ActionFormData,
-  FieldConfig,
-  FormConfig,
-  isFileFieldType,
-  isFileFieldWithOptionType,
-  SCOPES
-} from '@opencrvs/commons/client'
+import styled from 'styled-components'
+import { CountryLogo } from '@opencrvs/components/lib/icons'
 import {
   Accordion,
   Button,
+  Checkbox,
   DocumentViewer,
   Icon,
-  IDocumentViewerOptions,
   Link,
   ListReview,
   ResponsiveModal,
   Stack,
-  Text
+  Text,
+  TextArea
 } from '@opencrvs/components'
-
-import { EventConfig, EventIndex } from '@opencrvs/commons'
-import { CountryLogo } from '@opencrvs/components/lib/icons'
-import { isFormFieldVisible } from '@client/v2-events/components/forms/utils'
+import {
+  ActionFormData,
+  EventConfig,
+  EventIndex,
+  FieldType,
+  FormConfig,
+  getFieldValidationErrors,
+  isFieldVisible,
+  isOptionalUncheckedCheckbox,
+  SCOPES
+} from '@opencrvs/commons/client'
 import { FormFieldGenerator } from '@client/v2-events/components/forms/FormFieldGenerator'
 import { getCountryLogoFile } from '@client/offline/selectors'
 // eslint-disable-next-line no-restricted-imports
 import { getScope } from '@client/profile/profileSelectors'
-import { getFullURL } from '@client/v2-events/features/files/useFileUpload'
+import { useFileOptions } from '@client/v2-events/hooks/useFileOptions'
 import { Output } from './Output'
+
+const ValidationError = styled.span`
+  color: ${({ theme }) => theme.colors.negative};
+  display: inline-block;
+  text-transform: lowercase;
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+`
 
 const Row = styled.div<{
   position?: 'left' | 'center'
@@ -210,6 +221,37 @@ const reviewMessages = defineMessages({
     defaultMessage: 'Add attachement',
     description: 'Edit documents text',
     id: 'review.documents.editDocuments'
+  },
+  rejectModalCancel: {
+    id: 'v2.rejectModal.cancel',
+    defaultMessage: 'Cancel',
+    description: 'The label for cancel button of reject modal'
+  },
+  rejectModalArchive: {
+    id: 'v2.rejectModal.archive',
+    defaultMessage: 'Archive',
+    description: 'The label for archive button of reject modal'
+  },
+  rejectModalSendForUpdate: {
+    id: 'v2.rejectModal.sendForUpdate',
+    defaultMessage: 'Send For Update',
+    description: 'The label for send For Update button of reject modal'
+  },
+  rejectModalTitle: {
+    id: 'v2.rejectModal.title',
+    defaultMessage: 'Reason for rejection?',
+    description: 'The title for reject modal'
+  },
+  rejectModalDescription: {
+    id: 'v2.rejectModal.description',
+    defaultMessage:
+      'Please describe the updates required to this record for follow up action.',
+    description: 'The description for reject modal'
+  },
+  rejectModalMarkAsDuplicate: {
+    id: 'v2.rejectModal.markAsDuplicate',
+    defaultMessage: 'Mark as a duplicate',
+    description: 'The label for mark as duplicate checkbox of reject modal'
   }
 })
 
@@ -233,6 +275,7 @@ function ReviewComponent({
   eventConfig: EventConfig
   formConfig: FormConfig
   form: ActionFormData
+  metadata?: ActionFormData
   previousFormValues?: EventIndex['data']
   onEdit: ({
     pageId,
@@ -245,7 +288,6 @@ function ReviewComponent({
   }) => void
   title: string
   isUploadButtonVisible?: boolean
-  metadata?: ActionFormData
   onMetadataChange?: (values: ActionFormData) => void
 }) {
   const scopes = useSelector(getScope)
@@ -253,104 +295,15 @@ function ReviewComponent({
   const countryLogoFile = useSelector(getCountryLogoFile)
   const showPreviouslyMissingValuesAsChanged = previousFormValues !== undefined
   const previousForm = previousFormValues ?? {}
-
+  const fileOptions = useFileOptions(form, formConfig, intl)
   const pagesWithFile = formConfig.pages
     .filter(({ fields }) =>
-      fields.some(({ type }) => type === 'FILE' || type === 'FILE_WITH_OPTIONS')
+      fields.some(
+        ({ type }) =>
+          type === FieldType.FILE || type === FieldType.FILE_WITH_OPTIONS
+      )
     )
     .map(({ id }) => id)
-
-  function getOptions(fieldConfig: FieldConfig): IDocumentViewerOptions {
-    const value = form[fieldConfig.id]
-    if (!value) {
-      return {
-        selectOptions: [],
-        documentOptions: []
-      }
-    }
-
-    const fieldObj = {
-      config: fieldConfig,
-      value
-    }
-    if (isFileFieldType(fieldObj)) {
-      return {
-        selectOptions: [
-          {
-            value: fieldObj.config.id,
-            label: intl.formatMessage(fieldObj.config.label)
-          }
-        ],
-        documentOptions: [
-          {
-            value: getFullURL(fieldObj.value.filename),
-            label: fieldObj.config.id
-          }
-        ]
-      }
-    }
-
-    if (isFileFieldWithOptionType(fieldObj)) {
-      const labelPrefix = intl.formatMessage(fieldObj.config.label)
-
-      return fieldObj.config.options.reduce<IDocumentViewerOptions>(
-        (acc, { value: val, label }) => {
-          const specificValue = fieldObj.value.find(
-            ({ option }) => val === option
-          )
-          if (specificValue) {
-            return {
-              documentOptions: [
-                ...acc.documentOptions,
-                { value: getFullURL(specificValue.filename), label: val }
-              ],
-              selectOptions: [
-                ...acc.selectOptions,
-                {
-                  value: val,
-                  label: `${labelPrefix} (${intl.formatMessage(label)})`
-                }
-              ]
-            }
-          }
-          return acc
-        },
-        {
-          selectOptions: [],
-          documentOptions: []
-        }
-      )
-    }
-
-    return {
-      selectOptions: [],
-      documentOptions: []
-    }
-  }
-
-  function reduceFields(fieldConfigs: FieldConfig[]): IDocumentViewerOptions {
-    return fieldConfigs.reduce<IDocumentViewerOptions>(
-      (acc, fieldConfig) => {
-        const { selectOptions, documentOptions } = getOptions(fieldConfig)
-        return {
-          documentOptions: [...acc.documentOptions, ...documentOptions],
-          selectOptions: [...acc.selectOptions, ...selectOptions]
-        }
-      },
-      { selectOptions: [], documentOptions: [] }
-    )
-  }
-
-  const fileOptions = formConfig.pages.reduce<IDocumentViewerOptions>(
-    (acc, page) => {
-      const { selectOptions, documentOptions } = reduceFields(page.fields)
-      return {
-        documentOptions: [...acc.documentOptions, ...documentOptions],
-        selectOptions: [...acc.selectOptions, ...selectOptions]
-      }
-    },
-    { selectOptions: [], documentOptions: [] }
-  )
 
   return (
     <Row>
@@ -403,7 +356,10 @@ function ReviewComponent({
                     >
                       <ListReview id={'Section_' + page.id}>
                         {page.fields
-                          .filter((field) => isFormFieldVisible(field, form))
+                          .filter((field) => isFieldVisible(field, form))
+                          .filter(
+                            (field) => !isOptionalUncheckedCheckbox(field, form)
+                          )
                           .map((field) => {
                             const value = form[field.id]
                             const previousValue = previousForm[field.id]
@@ -419,11 +375,24 @@ function ReviewComponent({
                               />
                             )
 
+                            const error = getFieldValidationErrors({
+                              field,
+                              values: form
+                            })
+
+                            const errorDisplay =
+                              error.errors.length > 0 ? (
+                                <ValidationError key={field.id}>
+                                  {intl.formatMessage(error.errors[0].message)}
+                                </ValidationError>
+                              ) : null
+
                             return (
                               <ListReview.Row
                                 key={field.id}
                                 actions={
                                   <Link
+                                    data-testid={`change-button-${field.id}`}
                                     onClick={(e) => {
                                       e.stopPropagation()
 
@@ -440,7 +409,11 @@ function ReviewComponent({
                                 }
                                 id={field.id}
                                 label={intl.formatMessage(field.label)}
-                                value={valueDisplay}
+                                value={
+                                  error.errors.length > 0
+                                    ? errorDisplay
+                                    : valueDisplay
+                                }
                               />
                             )
                           })}
@@ -563,36 +536,56 @@ const ActionContainer = styled.div`
   }
 `
 
-function PreviewActionComponent({
+function ReviewActionComponent({
   onConfirm,
   onReject,
-  messages
+  messages,
+  primaryButtonType,
+  isPrimaryActionDisabled
 }: {
+  isPrimaryActionDisabled: boolean
   onConfirm: () => void
   onReject?: () => void
   messages: {
     title: MessageDescriptor
     description: MessageDescriptor
     onConfirm: MessageDescriptor
+    onReject?: MessageDescriptor
   }
+  primaryButtonType?: 'positive' | 'primary'
 }) {
   const intl = useIntl()
+
+  const background = isPrimaryActionDisabled ? 'error' : 'success'
+
   return (
     <Container>
-      <UnderLayBackground background="success">
+      <UnderLayBackground background={background}>
         <Content>
           <Title>{intl.formatMessage(messages.title)}</Title>
           <Description>{intl.formatMessage(messages.description)}</Description>
           <ActionContainer>
             <Button
+              disabled={isPrimaryActionDisabled}
               id="validateDeclarationBtn"
               size="large"
-              type="positive"
+              type={primaryButtonType ?? 'positive'}
               onClick={onConfirm}
             >
-              <Icon name="Check" />
+              <Icon color="white" name="Check" />
               {intl.formatMessage(messages.onConfirm)}
             </Button>
+            {onReject && messages.onReject && (
+              <Button
+                id="review-reject"
+                size="large"
+                type={'negative'}
+                onClick={onReject}
+              >
+                <Icon name="X" />
+                {intl.formatMessage(messages.onReject)}
+              </Button>
+            )}
           </ActionContainer>
         </Content>
       </UnderLayBackground>
@@ -616,6 +609,7 @@ function EditModal({
   return (
     <ResponsiveModal
       autoHeight
+      showHeaderBorder
       actions={[
         <Button
           key="cancel_edit"
@@ -656,14 +650,14 @@ function EditModal({
   )
 }
 
-function ActionModal({
+function AcceptActionModal({
   copy,
   close,
   action
 }: {
   copy?: {
-    cancel?: MessageDescriptor
-    primaryAction?: MessageDescriptor
+    onCancel?: MessageDescriptor
+    onConfirm?: MessageDescriptor
     title?: MessageDescriptor
     description?: MessageDescriptor
   }
@@ -674,6 +668,7 @@ function ActionModal({
   return (
     <ResponsiveModal
       autoHeight
+      showHeaderBorder
       actions={[
         <Button
           key={'cancel_' + action}
@@ -683,7 +678,9 @@ function ActionModal({
             close(null)
           }}
         >
-          {intl.formatMessage(copy?.cancel || reviewMessages.actionModalCancel)}
+          {intl.formatMessage(
+            copy?.onCancel || reviewMessages.actionModalCancel
+          )}
         </Button>,
         <Button
           key={'confirm_' + action}
@@ -694,7 +691,7 @@ function ActionModal({
           }}
         >
           {intl.formatMessage(
-            copy?.primaryAction || reviewMessages.actionModalPrimaryAction,
+            copy?.onConfirm || reviewMessages.actionModalPrimaryAction,
             {
               action
             }
@@ -702,7 +699,6 @@ function ActionModal({
         </Button>
       ]}
       handleClose={() => close(null)}
-      responsive={false}
       show={true}
       title={intl.formatMessage(
         copy?.title || reviewMessages.actionModalTitle,
@@ -720,9 +716,110 @@ function ActionModal({
   )
 }
 
+export const REJECT_ACTIONS = {
+  ARCHIVE: 'ARCHIVE',
+  SEND_FOR_UPDATE: 'SEND_FOR_UPDATE'
+} as const
+
+export interface RejectionState {
+  rejectAction: keyof typeof REJECT_ACTIONS
+
+  message: string
+  isDuplicate: boolean
+}
+
+function RejectActionModal({
+  close
+}: {
+  close: (result: RejectionState | null) => void
+}) {
+  const [state, setState] = useState<RejectionState>({
+    rejectAction: REJECT_ACTIONS.ARCHIVE,
+    message: '',
+    isDuplicate: false
+  })
+
+  const intl = useIntl()
+  return (
+    <ResponsiveModal
+      showHeaderBorder
+      actions={[
+        <Button
+          key="cancel_reject"
+          id="cancel_reject"
+          type="tertiary"
+          onClick={() => {
+            close(null)
+          }}
+        >
+          {intl.formatMessage(reviewMessages.rejectModalCancel)}
+        </Button>,
+        <Button
+          key="confirm_reject_with_archive"
+          disabled={!state.message}
+          id="confirm_reject_with_archive"
+          type="secondaryNegative"
+          onClick={() => {
+            close({
+              ...state,
+              rejectAction: REJECT_ACTIONS.ARCHIVE
+            })
+          }}
+        >
+          {intl.formatMessage(reviewMessages.rejectModalArchive)}
+        </Button>,
+        <Button
+          key="confirm_reject_with_update"
+          disabled={!state.message || state.isDuplicate}
+          id="confirm_reject_with_update"
+          type="negative"
+          onClick={() => {
+            close({
+              ...state,
+              rejectAction: REJECT_ACTIONS.SEND_FOR_UPDATE
+            })
+          }}
+        >
+          {intl.formatMessage(reviewMessages.rejectModalSendForUpdate)}
+        </Button>
+      ]}
+      contentHeight={270}
+      handleClose={() => close(null)}
+      show={true}
+      title={intl.formatMessage(reviewMessages.rejectModalTitle)}
+      width={918}
+    >
+      <Stack alignItems="left" direction="column">
+        <Text color="grey500" element="p" variant="reg16">
+          {intl.formatMessage(reviewMessages.rejectModalDescription)}
+        </Text>
+        <TextArea
+          required={true}
+          value={state.message}
+          onChange={(e) =>
+            setState((prev) => ({ ...prev, message: e.target.value }))
+          }
+        />
+        <Checkbox
+          label={intl.formatMessage(reviewMessages.rejectModalMarkAsDuplicate)}
+          name={'markDuplicate'}
+          selected={state.isDuplicate}
+          value={''}
+          onChange={() =>
+            setState((prev) => ({ ...prev, isDuplicate: !prev.isDuplicate }))
+          }
+        />
+      </Stack>
+    </ResponsiveModal>
+  )
+}
+
 export const Review = {
   Body: ReviewComponent,
-  Actions: PreviewActionComponent,
+  Actions: ReviewActionComponent,
   EditModal: EditModal,
-  ActionModal: ActionModal
+  ActionModal: {
+    Accept: AcceptActionModal,
+    Reject: RejectActionModal
+  }
 }

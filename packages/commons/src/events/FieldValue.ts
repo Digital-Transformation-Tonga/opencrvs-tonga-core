@@ -11,6 +11,7 @@
 import { z } from 'zod'
 
 export const TextValue = z.string()
+export const RequiredTextValue = TextValue.min(1)
 
 export const DateValue = z
   .string()
@@ -27,20 +28,30 @@ export const FileFieldValue = z.object({
 
 export type FileFieldValue = z.infer<typeof FileFieldValue>
 
-export const AddressFieldValue = z
-  .object({
-    country: z.string(),
-    province: z.string(),
-    district: z.string(),
-    urbanOrRural: z.string(),
-    town: z.string(),
-    residentialArea: z.string(),
-    street: z.string(),
-    number: z.string(),
-    zipCode: z.string(),
-    village: z.string()
-  })
-  .partial()
+const AdminStructure = z.object({
+  country: z.string(),
+  province: z.string(),
+  district: z.string()
+})
+
+const UrbanAddress = AdminStructure.extend({
+  urbanOrRural: z.literal('URBAN'),
+  town: z.string().optional(),
+  residentialArea: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  zipCode: z.string().optional()
+})
+
+const RuralAddress = AdminStructure.extend({
+  urbanOrRural: z.literal('RURAL'),
+  village: z.string().optional()
+})
+
+export const AddressFieldValue = z.discriminatedUnion('urbanOrRural', [
+  UrbanAddress,
+  RuralAddress
+])
 
 export type AddressFieldValue = z.infer<typeof AddressFieldValue>
 export const FileFieldValueWithOption = z.object({
@@ -58,6 +69,8 @@ export type FileFieldWithOptionValue = z.infer<typeof FileFieldWithOptionValue>
 
 export const CheckboxFieldValue = z.boolean()
 export type CheckboxFieldValue = z.infer<typeof CheckboxFieldValue>
+export const NumberFieldValue = z.number()
+export type NumberFieldValue = z.infer<typeof NumberFieldValue>
 
 export const FieldValue = z.union([
   TextValue,
@@ -65,7 +78,9 @@ export const FieldValue = z.union([
   FileFieldValue,
   FileFieldWithOptionValue,
   CheckboxFieldValue,
-  AddressFieldValue
+  NumberFieldValue,
+  UrbanAddress,
+  RuralAddress
 ])
 
 export type FieldValue = z.infer<typeof FieldValue>
@@ -78,6 +93,7 @@ export type FieldValueSchema =
   | typeof FileFieldWithOptionValue
   | typeof CheckboxFieldValue
   | typeof AddressFieldValue
+  | typeof NumberFieldValue
   | z.ZodString
   | z.ZodBoolean
 

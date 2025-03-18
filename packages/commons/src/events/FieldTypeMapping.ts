@@ -31,7 +31,8 @@ import {
   SelectField,
   SignatureField,
   TextAreaField,
-  TextField
+  TextField,
+  NumberField
 } from './FieldConfig'
 import { FieldType } from './FieldType'
 import {
@@ -43,9 +44,12 @@ import {
   FieldValueSchema,
   FileFieldValue,
   FileFieldWithOptionValue,
+  NumberFieldValue,
   OptionalFieldValueSchema,
+  RequiredTextValue,
   TextValue
 } from './FieldValue'
+
 /**
  * FieldTypeMapping.ts should include functions that map field types to different formats dynamically.
  * File is separated from FieldType and FieldConfig to avoid circular dependencies.
@@ -81,23 +85,22 @@ export function mapFieldTypeToZod(type: FieldType, required?: boolean) {
     case FieldType.OFFICE:
     case FieldType.SIGNATURE:
     case FieldType.HIDDEN:
-      schema = required ? TextValue.min(1) : TextValue
+      schema = required ? RequiredTextValue : TextValue
+      break
+    case FieldType.NUMBER:
+      schema = NumberFieldValue
       break
     case FieldType.CHECKBOX:
       schema = CheckboxFieldValue
-
       break
     case FieldType.FILE:
       schema = FileFieldValue
-
       break
     case FieldType.FILE_WITH_OPTIONS:
       schema = FileFieldWithOptionValue
-
       break
     case FieldType.ADDRESS:
       schema = AddressFieldValue
-
       break
   }
 
@@ -134,6 +137,8 @@ export function mapFieldTypeToMockValue(field: FieldConfig, i: number) {
     case FieldType.FACILITY:
     case FieldType.OFFICE:
       return `${field.id}-${field.type}-${i}`
+    case FieldType.NUMBER:
+      return 19
     case FieldType.EMAIL:
       return 'test@opencrvs.org'
     case FieldType.ADDRESS:
@@ -146,14 +151,18 @@ export function mapFieldTypeToMockValue(field: FieldConfig, i: number) {
         residentialArea: 'Example Residential Area',
         street: 'Example Street',
         number: '55',
-        zipCode: '123456',
-        village: 'Example Village'
+        zipCode: '123456'
       }
     case FieldType.DATE:
       return '2021-01-01'
     case FieldType.CHECKBOX:
       return true
     case FieldType.FILE:
+      return {
+        filename: '4f095fc4-4312-4de2-aa38-86dcc0f71044.png',
+        originalFilename: 'abcd.png',
+        type: 'image/png'
+      } satisfies FileFieldValue
     case FieldType.FILE_WITH_OPTIONS:
       return null
   }
@@ -185,6 +194,13 @@ export const isTextFieldType = (field: {
   value: FieldValue
 }): field is { value: string; config: TextField } => {
   return field.config.type === FieldType.TEXT
+}
+
+export const isNumberFieldType = (field: {
+  config: FieldConfig
+  value: FieldValue
+}): field is { value: number; config: NumberField } => {
+  return field.config.type === FieldType.NUMBER
 }
 
 export const isTextAreaFieldType = (field: {

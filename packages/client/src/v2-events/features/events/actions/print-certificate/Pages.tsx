@@ -16,11 +16,7 @@ import {
   useTypedSearchParams
 } from 'react-router-typesafe-routes/dom'
 import { useIntl } from 'react-intl'
-import {
-  ActionType,
-  FormPage,
-  getCurrentEventState
-} from '@opencrvs/commons/client'
+import { ActionType, FormPage } from '@opencrvs/commons/client'
 import { Print } from '@opencrvs/components/lib/icons'
 import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents'
 import { Pages as PagesComponent } from '@client/v2-events/features/events/components/Pages'
@@ -29,7 +25,7 @@ import { useEventConfiguration } from '@client/v2-events/features/events/useEven
 import { useEventFormNavigation } from '@client/v2-events/features/events/useEventFormNavigation'
 import { ROUTES } from '@client/v2-events/routes'
 import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
-import { FormLayout } from '@client/v2-events/layouts/form'
+import { FormLayout } from '@client/v2-events/layouts'
 import { Select } from '@client/v2-events/features/events/registered-fields/Select'
 import { InputField } from '@client/components/form/InputField'
 import { useCertificateTemplateSelectorFieldConfig } from '@client/v2-events/features/events/useCertificateTemplateSelectorFieldConfig'
@@ -42,7 +38,6 @@ export function Pages() {
     ROUTES.V2.EVENTS.PRINT_CERTIFICATE.PAGES
   )
   const [templateId, setTemplateId] = useState<string>()
-  const formEventId = useEventFormData((state) => state.eventId)
   const intl = useIntl()
   const navigate = useNavigate()
   const events = useEvents()
@@ -52,16 +47,9 @@ export function Pages() {
 
   const certTemplateFieldConfig =
     useCertificateTemplateSelectorFieldConfig(event)
-  const currentState = getCurrentEventState(event)
 
   const { setFormValues, getFormValues } = useEventFormData()
-  const form = getFormValues(eventId)
-
-  useEffect(() => {
-    if (formEventId !== event.id) {
-      setFormValues(event.id, currentState.data)
-    }
-  }, [currentState.data, event.id, formEventId, setFormValues])
+  const form = getFormValues()
 
   const { eventConfiguration: configuration } = useEventConfiguration(
     event.type
@@ -103,7 +91,7 @@ export function Pages() {
         form={form}
         formPages={formPages}
         pageId={currentPageId}
-        setFormData={(data) => setFormValues(eventId, data)}
+        setFormData={(data) => setFormValues(data)}
         showReviewButton={searchParams.from === 'review'}
         onFormPageChange={(nextPageId: string) =>
           navigate(
@@ -131,10 +119,10 @@ export function Pages() {
               <InputField
                 id={certTemplateFieldConfig.id}
                 label={intl.formatMessage(certTemplateFieldConfig.label)}
+                required={true}
                 touched={false}
               >
                 <Select.Input
-                  required
                   id={certTemplateFieldConfig.id}
                   label={certTemplateFieldConfig.label}
                   options={certTemplateFieldConfig.options}
@@ -150,7 +138,7 @@ export function Pages() {
               id="locationForm"
               initialValues={form}
               setAllFieldsDirty={false}
-              onChange={(values) => setFormValues(eventId, values)}
+              onChange={(values) => setFormValues(values)}
             />
           </>
         )}

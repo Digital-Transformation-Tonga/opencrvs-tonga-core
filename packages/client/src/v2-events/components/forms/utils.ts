@@ -8,13 +8,11 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-import { formatISO } from 'date-fns'
 import {
   ActionFormData,
   FieldConfig,
   Inferred,
-  FieldValue,
-  isFieldHidden
+  FieldValue
 } from '@opencrvs/commons/client'
 import { DependencyInfo } from '@client/forms'
 
@@ -25,28 +23,23 @@ import { DependencyInfo } from '@client/forms'
  */
 export const FIELD_SEPARATOR = '____'
 
-export function handleInitialValue(
+export function makeFormFieldIdFormikCompatible(fieldId: string) {
+  return fieldId.replaceAll('.', FIELD_SEPARATOR)
+}
+
+export function handleDefaultValue(
   field: FieldConfig,
   formData: ActionFormData
 ) {
-  const initialValue = field.initialValue
+  const defaultValue = field.defaultValue
 
-  if (hasInitialValueDependencyInfo(initialValue)) {
-    return evalExpressionInFieldDefinition(initialValue.expression, {
+  if (hasDefaultValueDependencyInfo(defaultValue)) {
+    return evalExpressionInFieldDefinition(defaultValue.expression, {
       $form: formData
     })
   }
 
-  return initialValue
-}
-
-export function isFormFieldVisible(field: FieldConfig, form: ActionFormData) {
-  return !isFieldHidden(field, {
-    $form: form,
-    $now: formatISO(new Date(), {
-      representation: 'date'
-    })
-  })
+  return defaultValue
 }
 
 export function evalExpressionInFieldDefinition(
@@ -60,10 +53,10 @@ export function evalExpressionInFieldDefinition(
   return eval(expression) as FieldValue
 }
 
-export function hasInitialValueDependencyInfo(
-  value: Inferred['initialValue']
+export function hasDefaultValueDependencyInfo(
+  value: Inferred['defaultValue']
 ): value is DependencyInfo {
-  return typeof value === 'object' && 'dependsOn' in value
+  return Boolean(value && typeof value === 'object' && 'dependsOn' in value)
 }
 
 export function getDependentFields(
@@ -71,13 +64,13 @@ export function getDependentFields(
   fieldName: string
 ): FieldConfig[] {
   return fields.filter((field) => {
-    if (!field.initialValue) {
+    if (!field.defaultValue) {
       return false
     }
-    if (!hasInitialValueDependencyInfo(field.initialValue)) {
+    if (!hasDefaultValueDependencyInfo(field.defaultValue)) {
       return false
     }
-    return field.initialValue.dependsOn.includes(fieldName)
+    return field.defaultValue.dependsOn.includes(fieldName)
   })
 }
 

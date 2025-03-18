@@ -11,19 +11,24 @@
 
 import React from 'react'
 import { Outlet, RouteObject } from 'react-router-dom'
+
+import { ActionType } from '@opencrvs/commons/client'
 import { Debug } from '@client/v2-events/features/debug/debug'
 import { router as correctionRouter } from '@client/v2-events/features/events/actions/correct/request/router'
 import * as Declare from '@client/v2-events/features/events/actions/declare'
 import { DeleteEvent } from '@client/v2-events/features/events/actions/delete'
-import * as Register from '@client/v2-events/features/events/actions/register'
 import * as PrintCertificate from '@client/v2-events/features/events/actions/print-certificate'
-import { ValidateEvent } from '@client/v2-events/features/events/actions/validate'
-import { EventSelection } from '@client/v2-events/features/events/EventSelection'
+import * as Register from '@client/v2-events/features/events/actions/register'
+import * as Validate from '@client/v2-events/features/events/actions/validate'
+import AdvancedSearch from '@client/v2-events/features/events/AdvancedSearch/AdvancedSearch'
+import { EventSelectionIndex } from '@client/v2-events/features/events/EventSelection'
 import { EventOverviewIndex } from '@client/v2-events/features/workqueues/EventOverview/EventOverview'
 import { router as workqueueRouter } from '@client/v2-events/features/workqueues/router'
-import { WorkqueueLayout } from '@client/v2-events/layouts'
+import { EventOverviewLayout, WorkqueueLayout } from '@client/v2-events/layouts'
+import { TRPCErrorBoundary } from '@client/v2-events/routes/TRPCErrorBoundary'
 import { TRPCProvider } from '@client/v2-events/trpc'
-import AdvancedSearch from '@client/v2-events/features/events/AdvancedSearch/AdvancedSearch'
+import { SearchResultIndex } from '@client/v2-events/features/events/AdvancedSearch/SearchResultIndex'
+import { Action } from '@client/v2-events/features/events/components/Action'
 import { ROUTES } from './routes'
 
 /**
@@ -35,36 +40,38 @@ import { ROUTES } from './routes'
 export const routesConfig = {
   path: ROUTES.V2.path,
   element: (
-    <TRPCProvider>
-      <Outlet />
-      <Debug />
-    </TRPCProvider>
+    <TRPCErrorBoundary>
+      <TRPCProvider>
+        <Outlet />
+        <Debug />
+      </TRPCProvider>
+    </TRPCErrorBoundary>
   ),
   children: [
     workqueueRouter,
     {
       path: ROUTES.V2.EVENTS.OVERVIEW.path,
       element: (
-        <WorkqueueLayout>
+        <EventOverviewLayout>
           <EventOverviewIndex />
-        </WorkqueueLayout>
+        </EventOverviewLayout>
       )
     },
     {
       path: ROUTES.V2.EVENTS.CREATE.path,
-      element: <EventSelection />
+      element: <EventSelectionIndex />
     },
     {
       path: ROUTES.V2.EVENTS.DELETE.path,
       element: <DeleteEvent />
     },
     {
-      path: ROUTES.V2.EVENTS.VALIDATE.path,
-      element: <ValidateEvent />
-    },
-    {
       path: ROUTES.V2.EVENTS.DECLARE.path,
-      element: <Outlet />,
+      element: (
+        <Action type={ActionType.DECLARE}>
+          <Outlet />
+        </Action>
+      ),
       children: [
         {
           index: true,
@@ -80,10 +87,36 @@ export const routesConfig = {
         }
       ]
     },
+    {
+      path: ROUTES.V2.EVENTS.VALIDATE.path,
+      element: (
+        <Action type={ActionType.VALIDATE}>
+          <Outlet />
+        </Action>
+      ),
+      children: [
+        {
+          index: true,
+          element: <Validate.Pages />
+        },
+        {
+          path: ROUTES.V2.EVENTS.VALIDATE.PAGES.path,
+          element: <Validate.Pages />
+        },
+        {
+          path: ROUTES.V2.EVENTS.VALIDATE.REVIEW.path,
+          element: <Validate.Review />
+        }
+      ]
+    },
     correctionRouter,
     {
       path: ROUTES.V2.EVENTS.REGISTER.path,
-      element: <Outlet />,
+      element: (
+        <Action type={ActionType.REGISTER}>
+          <Outlet />
+        </Action>
+      ),
       children: [
         {
           index: true,
@@ -101,7 +134,11 @@ export const routesConfig = {
     },
     {
       path: ROUTES.V2.EVENTS.PRINT_CERTIFICATE.path,
-      element: <Outlet />,
+      element: (
+        <Action type={ActionType.PRINT_CERTIFICATE}>
+          <Outlet />
+        </Action>
+      ),
       children: [
         {
           index: true,
@@ -120,6 +157,14 @@ export const routesConfig = {
     {
       path: ROUTES.V2.ADVANCED_SEARCH.path,
       element: <AdvancedSearch />
+    },
+    {
+      path: ROUTES.V2.SEARCH_RESULT.path,
+      element: (
+        <WorkqueueLayout>
+          <SearchResultIndex />
+        </WorkqueueLayout>
+      )
     }
   ]
 } satisfies RouteObject
