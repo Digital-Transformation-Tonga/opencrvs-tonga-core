@@ -18,13 +18,13 @@ import { setupServer } from 'msw/node'
 import superjson, { serialize } from 'superjson'
 import { vi } from 'vitest'
 import {
+  ActionType,
   EventDocument,
   EventInput,
   tennisClubMembershipEvent
 } from '@opencrvs/commons/client'
 import { AppRouter, queryClient, TRPCProvider } from '@client/v2-events/trpc'
 import { tennisClubMembershipEventIndex } from '@client/v2-events/features/events/fixtures'
-import { birthEvent } from '@client/v2-events/components/forms/inputs/FileInput/fixtures'
 import { storage } from '@client/storage'
 import { useEvents } from './useEvents'
 
@@ -62,7 +62,7 @@ const createHandler = trpcHandler(async ({ request }) => {
     updatedAt: new Date('2024-12-05T18:37:31.295Z').toISOString(),
     actions: [
       {
-        type: 'CREATE',
+        type: ActionType.CREATE,
         id: '_REAL_ACTION_UUID_',
         createdAt: new Date('2024-12-05T18:37:31.295Z').toISOString(),
         createdBy: '6733309827b97e6483877188',
@@ -103,7 +103,7 @@ const server = setupServer(
   ),
 
   tRPCMsw.event.config.get.query(() => {
-    return [tennisClubMembershipEvent, birthEvent]
+    return [tennisClubMembershipEvent]
   }),
   tRPCMsw.event.list.query(() => {
     return [tennisClubMembershipEventIndex]

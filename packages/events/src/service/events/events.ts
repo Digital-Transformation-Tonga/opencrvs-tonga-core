@@ -12,17 +12,18 @@
 import {
   ActionDocument,
   ActionInputWithType,
+  ActionUpdate,
   Draft,
   EventDocument,
   EventInput,
   FieldConfig,
   FieldType,
-  FieldValue,
+  FieldUpdateValue,
   FileFieldValue,
-  isUndeclaredDraft
+  findActiveActionFields
 } from '@opencrvs/commons/events'
 import {
-  getActionFormFields,
+  getEventConfigurationById,
   notifyOnAction
 } from '@events/service/config/config'
 import { deleteFile, fileExists } from '@events/service/files'
@@ -85,7 +86,12 @@ export async function deleteEvent(
     throw new EventNotFoundError(eventId)
   }
 
-  const hasNonDeletableActions = !isUndeclaredDraft(event)
+  /**
+   * Once an event is declared, it cannot be removed anymore.
+   */
+  const hasNonDeletableActions = event.actions.some(
+    (action) => action.type !== ActionType.CREATE
+  )
 
   if (hasNonDeletableActions) {
     throw new TRPCError({
@@ -104,12 +110,14 @@ export async function deleteEvent(
 }
 
 async function deleteEventAttachments(token: string, event: EventDocument) {
+  const configuration = await getEventConfigurationById({
+    token,
+    eventType: event.type
+  })
+
   for (const ac of event.actions) {
-    const fieldConfigs = await getActionFormFields({
-      token,
-      eventType: event.type,
-      action: ac.type
-    })
+    const fieldConfigs = findActiveActionFields(configuration, ac.type) || []
+
     for (const [key, value] of Object.entries(ac.data)) {
       const fileValue = getValidFileValue(key, value, fieldConfigs)
 
@@ -188,7 +196,7 @@ export async function createEvent({
 
 function getValidFileValue(
   fieldKey: string,
-  fieldValue: FieldValue,
+  fieldValue: FieldUpdateValue,
   fieldTypes: Array<{ id: string; type: FieldType }>
 ) {
   const isFileType =
@@ -201,7 +209,7 @@ function getValidFileValue(
 }
 
 function extractFileValues(
-  data: ActionDocument['data'],
+  data: ActionUpdate,
   fieldTypes: Array<{ id: string; type: FieldType }>
 ): Array<{ fieldName: string; file: FileFieldValue }> {
   const fileValues: Array<{ fieldName: string; file: FileFieldValue }> = []
@@ -261,11 +269,13 @@ export async function addAction(
   const db = await events.getClient()
   const now = new Date().toISOString()
   const event = await getEventById(eventId)
-  const fieldConfigs = await getActionFormFields({
+  const configuration = await getEventConfigurationById({
     token,
-    eventType: event.type,
-    action: input.type
+    eventType: event.type
   })
+
+  const fieldConfigs =
+    findActiveActionFields(configuration, input.type, input.data) || []
   const fileValuesInCurrentAction = extractFileValues(input.data, fieldConfigs)
 
   for (const file of fileValuesInCurrentAction) {
@@ -274,7 +284,7 @@ export async function addAction(
     }
   }
 
-  if (input.type === ActionType.ARCHIVED && input.metadata?.isDuplicate) {
+  if (input.type === ActionType.ARCHIVE && input.metadata?.isDuplicate) {
     input.transactionId = getUUID()
     await db.collection<EventDocument>('events').updateOne(
       {
@@ -325,8 +335,11 @@ export async function addAction(
   )
 
   const updatedEvent = await getEventById(eventId)
-  await indexEvent(updatedEvent)
-  await notifyOnAction(input, updatedEvent, token)
-  await deleteDraftsByEventId(eventId)
+  if (action.type !== ActionType.READ) {
+    await indexEvent(updatedEvent)
+    await notifyOnAction(input, updatedEvent, token)
+    await deleteDraftsByEventId(eventId)
+  }
+
   return updatedEvent
 }

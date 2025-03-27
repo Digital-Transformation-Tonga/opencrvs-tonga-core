@@ -104,7 +104,6 @@ describe('check unreferenced draft attachments are deleted while final action su
             filename: `${n}-4f095fc4-4312-4de2-aa38-86dcc0f71044.png`
           }
         },
-        incomplete: false,
         transactionId: `transactionId-${n}`,
         eventId: event.id
       }
@@ -145,7 +144,8 @@ describe('check unreferenced draft attachments are deleted while final action su
     // since declare action has been submitted 5 times
     expect(updatedEvent.actions).toEqual([
       expect.objectContaining({ type: ActionType.CREATE }),
-      expect.objectContaining({ type: ActionType.DECLARE })
+      expect.objectContaining({ type: ActionType.DECLARE }),
+      expect.objectContaining({ type: ActionType.READ })
     ])
   })
 

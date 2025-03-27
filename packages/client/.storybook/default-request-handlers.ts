@@ -21,7 +21,6 @@ import {
   tennisClubMembershipEventDocument
 } from '../src/v2-events/features/events/fixtures'
 import { tennisClubMembershipCertifiedCertificateTemplate } from './tennisClubMembershipCertifiedCertificateTemplate'
-import { birthEvent } from '@client/v2-events/components/forms/inputs/FileInput/fixtures'
 import { tennisClubMembershipEvent } from '@opencrvs/commons/client'
 
 async function ensureCacheExists(cacheName: string) {
@@ -60,7 +59,7 @@ export const handlers = {
   ],
   events: [
     tRPCMsw.event.config.get.query(() => {
-      return [tennisClubMembershipEvent, birthEvent]
+      return [tennisClubMembershipEvent]
     }),
     tRPCMsw.event.list.query(() => {
       return [tennisClubMembershipEventIndex]
@@ -1065,7 +1064,7 @@ export const handlers = {
               }
             ],
             primaryOffice: {
-              id: 'dfcd1cbc-30c7-41a4-afd2-020515b4d78b',
+              id: '028d2c85-ca31-426d-b5d1-2cef545a4902',
               name: 'Ibombo District Office',
               alias: ['Ibombo District Office'],
               status: 'active',
@@ -1367,7 +1366,7 @@ export const handlers = {
               status: 'active',
               mode: 'instance',
               partOf: {
-                reference: 'Location/e76fbe62-bd35-44cf-ad0b-9242db1d3085'
+                reference: 'Location/5ef450bc-712d-48ad-93f3-8da0fa453baa'
               },
               type: {
                 coding: [

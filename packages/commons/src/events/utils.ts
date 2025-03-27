@@ -13,16 +13,21 @@ import { TranslationConfig } from './TranslationConfig'
 
 import { flattenDeep, omitBy } from 'lodash'
 import { workqueues } from '../workqueues'
-import { ActionType } from './ActionType'
+import { ActionType, LatentActions } from './ActionType'
 import { EventConfig } from './EventConfig'
 import { EventConfigInput } from './EventConfigInput'
 import { EventMetadataKeys, eventMetadataLabelMap } from './EventMetadata'
 import { FieldConfig } from './FieldConfig'
 import { WorkqueueConfig } from './WorkqueueConfig'
-import { ActionFormData } from './ActionDocument'
-import { FormConfig } from './FormConfig'
-import { isFieldVisible } from '../conditionals/validate'
+import { ActionUpdate, EventState } from './ActionDocument'
+import { FormConfig, FormPageType, FormPageConfig } from './FormConfig'
+import { isFieldVisible, validate } from '../conditionals/validate'
 import { FieldType } from './FieldType'
+import { getOrThrow } from '../utils'
+import { Draft } from './Draft'
+import { EventDocument } from './EventDocument'
+import { getUUID } from '../uuid'
+import { formatISO } from 'date-fns'
 
 function isMetadataField<T extends string>(
   field: T | EventMetadataKeys
@@ -130,7 +135,7 @@ export function validateWorkqueueConfig(workqueueConfigs: WorkqueueConfig[]) {
     )
     if (!rootWorkqueue) {
       throw new Error(
-        `Invalid workqueue configuration: workqueue not found with id:  ${workqueue.id}`
+        `Invalid workqueue configuration: workqueue not found with id: ${workqueue.id}`
       )
     }
   })
@@ -158,6 +163,26 @@ export const getFormFields = (formConfig: FormConfig) => {
   return formConfig.pages.flatMap((p) => p.fields)
 }
 
+export function isPageVisible(page: FormPageConfig, formValues: ActionUpdate) {
+  if (!page.conditional) {
+    return true
+  }
+
+  return validate(page.conditional, {
+    $form: formValues,
+    $now: formatISO(new Date(), { representation: 'date' })
+  })
+}
+
+export const getVisiblePagesFormFields = (
+  formConfig: FormConfig,
+  formData: ActionUpdate
+) => {
+  return formConfig.pages
+    .filter((p) => isPageVisible(p, formData))
+    .flatMap((p) => p.fields)
+}
+
 /**
  * Returns only form fields for the action type, if any, excluding review fields.
  */
@@ -176,18 +201,36 @@ export const findActiveActionFormFields = (
  */
 export const findActiveActionFields = (
   configuration: EventConfig,
-  action: ActionType
+  action: ActionType,
+  formData?: ActionUpdate
 ): FieldConfig[] | undefined => {
   const form = findActiveActionForm(configuration, action)
   const reviewFields = form?.review.fields
 
-  const formFields = form ? getFormFields(form) : undefined
+  let formFields: FieldConfig[] | undefined = undefined
+
+  if (form) {
+    formFields = formData
+      ? getVisiblePagesFormFields(form, formData)
+      : getFormFields(form)
+  }
+
   const allFields = formFields
     ? formFields.concat(reviewFields ?? [])
     : reviewFields
 
   /** Let caller decide whether to throw an error when fields are missing, or default to empty array */
   return allFields
+}
+
+export const getActiveActionFormPages = (
+  configuration: EventConfig,
+  action: ActionType
+) => {
+  return getOrThrow(
+    findActiveActionForm(configuration, action)?.pages,
+    'Form configuration not found for type: ' + configuration.id
+  )
 }
 
 /**
@@ -197,6 +240,9 @@ export function getActiveActionFields(
   configuration: EventConfig,
   action: ActionType
 ): FieldConfig[] {
+  if (LatentActions.some((latentAction) => latentAction === action)) {
+    return getActiveActionFields(configuration, ActionType.DECLARE)
+  }
   const fields = findActiveActionFields(configuration, action)
 
   if (!fields) {
@@ -217,23 +263,15 @@ export function getEventConfiguration(
   return config
 }
 
-export function isOptionalUncheckedCheckbox(
-  field: FieldConfig,
-  form: ActionFormData
-) {
-  if (field.type !== FieldType.CHECKBOX) {
-    return false
-  }
-
-  // For required checkbox fields, we want to display the field even if it is not checked
-  if (field.required) {
+function isOptionalUncheckedCheckbox(field: FieldConfig, form: EventState) {
+  if (field.type !== FieldType.CHECKBOX || field.required) {
     return false
   }
 
   return !form[field.id]
 }
 
-export function stripHiddenFields(fields: FieldConfig[], data: ActionFormData) {
+export function stripHiddenFields(fields: FieldConfig[], data: EventState) {
   return omitBy(data, (_, fieldId) => {
     const field = fields.find((f) => f.id === fieldId)
 
@@ -247,4 +285,45 @@ export function stripHiddenFields(fields: FieldConfig[], data: ActionFormData) {
 
     return !isFieldVisible(field, data)
   })
+}
+
+export function findActiveDrafts(event: EventDocument, drafts: Draft[]) {
+  const actions = event.actions
+    .slice()
+    .filter(({ type }) => type !== ActionType.READ)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+  const lastAction = actions[actions.length - 1]
+  return (
+    drafts
+      // Temporally allows equal timestamps as the generated demo data is not perfect yet
+      // should be > rather than >=
+      .filter(({ createdAt }) => createdAt >= lastAction.createdAt)
+      .filter(({ eventId }) => eventId === event.id)
+  )
+}
+
+export function createEmptyDraft(
+  eventId: string,
+  draftId: string,
+  actionType: ActionType
+) {
+  return {
+    id: draftId,
+    eventId,
+    createdAt: new Date().toISOString(),
+    transactionId: getUUID(),
+    action: {
+      type: actionType,
+      data: {},
+      metadata: {},
+      createdAt: new Date().toISOString(),
+      createdBy: '@todo',
+      createdAtLocation: '@todo'
+    }
+  }
+}
+
+export function isVerificationPage(page: FormPageConfig) {
+  return page.type === FormPageType.VERIFICATION
 }

@@ -12,7 +12,7 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 
 import { useTRPC } from '@client/v2-events/trpc'
-import { useGetEvent } from './procedures/get'
+import { useGetEvent, useGetEventState } from './procedures/get'
 import { useOutbox } from './outbox'
 import { useCreateEvent } from './procedures/create'
 import { useDeleteEvent } from './procedures/delete'
@@ -24,9 +24,11 @@ import {
 
 export function useEvents() {
   const trpc = useTRPC()
+  const getEvent = useGetEvent()
   return {
     createEvent: useCreateEvent,
-    getEvent: useGetEvent(),
+    /** Returns an event with full history. If you only need the state of the event, use getEventState. */
+    getEvent,
     getEvents: {
       useQuery: useQuery({
         ...trpc.event.list.queryOptions(),
@@ -39,6 +41,8 @@ export function useEvents() {
         }).data
       ]
     },
+    /** Returns an event with aggregated history. If you need the history of the event, use getEvent. */
+    getEventState: useGetEventState(),
     deleteEvent: {
       useMutation: useDeleteEvent
     },
@@ -74,12 +78,14 @@ export function useEvents() {
       notify: useEventAction(trpc.event.actions.notify),
       declare: useEventAction(trpc.event.actions.declare),
       register: useEventAction(trpc.event.actions.register),
-      printCertificate: useEventAction(trpc.event.actions.printCertificate),
       correction: {
         request: useEventAction(trpc.event.actions.correction.request),
         approve: useEventAction(trpc.event.actions.correction.approve),
         reject: useEventAction(trpc.event.actions.correction.reject)
       }
+    },
+    onlineActions: {
+      printCertificate: useEventAction(trpc.event.actions.printCertificate)
     },
     customActions: {
       registerOnDeclare: useEventCustomAction([

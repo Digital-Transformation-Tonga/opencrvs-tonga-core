@@ -75,8 +75,26 @@ export async function ensureIndexExists(eventConfiguration: EventConfig) {
   })
 
   if (!hasEventsIndex) {
+    logger.info(`Creating index ${indexName}`)
     await createIndex(indexName, getAllFields(eventConfiguration))
+  } else {
+    logger.info(`Index ${indexName} already exists`)
+    logger.info(JSON.stringify(hasEventsIndex))
   }
+  return ensureAlias(indexName)
+}
+async function ensureAlias(indexName: string) {
+  const client = getOrCreateClient()
+  logger.info(`Ensuring alias for index ${indexName}`)
+  const res = await client.indices.putAlias({
+    index: indexName,
+    name: getEventAliasName()
+  })
+
+  logger.info(`Alias ${getEventAliasName()} created for index ${indexName}`)
+  logger.info(JSON.stringify(res))
+
+  return res
 }
 
 export async function createIndex(
@@ -109,20 +127,17 @@ export async function createIndex(
     }
   })
 
-  return client.indices.putAlias({
-    index: indexName,
-    name: getEventAliasName()
-  })
+  return ensureAlias(indexName)
 }
 
-const SEPARATOR = '____'
+export const FIELD_ID_SEPARATOR = '____'
 
 export function encodeFieldId(fieldId: string) {
-  return fieldId.replaceAll('.', SEPARATOR)
+  return fieldId.replaceAll('.', FIELD_ID_SEPARATOR)
 }
 
 function decodeFieldId(fieldId: string) {
-  return fieldId.replaceAll(SEPARATOR, '.')
+  return fieldId.replaceAll(FIELD_ID_SEPARATOR, '.')
 }
 
 type _Combine<
@@ -156,10 +171,12 @@ function mapFieldTypeToElasticsearch(field: FieldConfig) {
     case FieldType.ADMINISTRATIVE_AREA:
     case FieldType.FACILITY:
     case FieldType.OFFICE:
+    case FieldType.DATA:
       return { type: 'keyword' }
     case FieldType.ADDRESS:
       const addressProperties = {
         country: { type: 'keyword' },
+        addressType: { type: 'keyword' },
         province: { type: 'keyword' },
         district: { type: 'keyword' },
         urbanOrRural: { type: 'keyword' },
@@ -168,7 +185,14 @@ function mapFieldTypeToElasticsearch(field: FieldConfig) {
         street: { type: 'keyword' },
         number: { type: 'keyword' },
         zipCode: { type: 'keyword' },
-        village: { type: 'keyword' }
+        village: { type: 'keyword' },
+        state: { type: 'keyword' },
+        district2: { type: 'keyword' },
+        cityOrTown: { type: 'keyword' },
+        addressLine1: { type: 'keyword' },
+        addressLine2: { type: 'keyword' },
+        addressLine3: { type: 'keyword' },
+        postcodeOrZip: { type: 'keyword' }
       } satisfies {
         [K in keyof Required<AllFieldsUnion>]: estypes.MappingProperty
       }
@@ -252,13 +276,11 @@ export async function indexEvent(event: EventDocument) {
   const esClient = getOrCreateClient()
   const indexName = getEventIndexName(event.type)
 
-  return esClient.update<EventIndex>({
+  return esClient.index<EventIndex>({
     index: indexName,
     id: event.id,
-    body: {
-      doc: eventToEventIndex(event),
-      doc_as_upsert: true
-    },
+    /** We derive the full state (without nulls) from eventToEventIndex, replace instead of update. */
+    document: eventToEventIndex(event),
     refresh: 'wait_for'
   })
 }
@@ -278,13 +300,13 @@ export async function deleteEventIndex(event: EventDocument) {
 export async function getIndexedEvents() {
   const esClient = getOrCreateClient()
 
-  const hasEventsIndex = await esClient.indices.exists({
-    index: getEventAliasName()
+  const hasEventsIndex = await esClient.indices.existsAlias({
+    name: getEventAliasName()
   })
 
   if (!hasEventsIndex) {
     logger.error(
-      'Event index not created. Sending empty array. Ensure indexing is running.'
+      `Event alias ${getEventAliasName()} not created. Sending empty array. Ensure indexing is running.`
     )
     return []
   }
@@ -295,14 +317,10 @@ export async function getIndexedEvents() {
     request_cache: false
   })
 
-  const events = z.array(EventIndex).parse(
-    response.hits.hits
-      .map((hit) => hit._source)
-      .filter((event): event is EncodedEventIndex => event !== undefined)
-      .map((event) => decodeEventIndex(event))
-  )
-
-  return events
+  return response.hits.hits
+    .map((hit) => hit._source)
+    .filter((event): event is EncodedEventIndex => event !== undefined)
+    .map(decodeEventIndex)
 }
 
 export async function getIndex(eventParams: EventSearchIndex) {

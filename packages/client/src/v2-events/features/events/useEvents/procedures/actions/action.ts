@@ -102,7 +102,7 @@ setMutationDefaults(trpcOptionsProxy.event.actions.archive, {
   retryDelay: 10000,
   onSuccess: updateLocalEvent,
   meta: {
-    actionType: ActionType.ARCHIVED
+    actionType: ActionType.ARCHIVE
   }
 })
 
@@ -110,8 +110,6 @@ setMutationDefaults(trpcOptionsProxy.event.actions.printCertificate, {
   mutationFn: createEventActionMutationFn(
     trpcOptionsProxy.event.actions.printCertificate
   ),
-  retry: true,
-  retryDelay: 10000,
   onSuccess: updateLocalEvent,
   meta: {
     actionType: ActionType.PRINT_CERTIFICATE
@@ -223,9 +221,41 @@ export function useEventAction<P extends DecorateMutationProcedure<any>>(
       if (!eventConfiguration) {
         throw new Error('Event configuration not found')
       }
+      if (actionType === ActionType.NOTIFY) {
+        /**
+         * Because NOTIFY action is just an incomplete DECLARE action,
+         * notifyFields are decided by DECLARE action
+         */
+        const notifyFields = getActiveActionFields(
+          eventConfiguration,
+          ActionType.DECLARE
+        )
+
+        return mutation.mutate({
+          ...params,
+          data: stripHiddenFields(notifyFields, params.data)
+        })
+      }
       const fields = getActiveActionFields(eventConfiguration, actionType)
 
       return mutation.mutate({
+        ...params,
+        data: stripHiddenFields(fields, params.data)
+      })
+    },
+    mutateAsync: async (params: inferInput<P>) => {
+      const localEvent = findLocalEventData(params.eventId)
+      const eventConfiguration = eventConfigurations.find(
+        (event) => event.id === localEvent?.type
+      )
+
+      if (!eventConfiguration) {
+        throw new Error('Event configuration not found')
+      }
+
+      const fields = getActiveActionFields(eventConfiguration, actionType)
+
+      return mutation.mutateAsync({
         ...params,
         data: stripHiddenFields(fields, params.data)
       })

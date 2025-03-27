@@ -10,11 +10,12 @@
  */
 
 import {
-  ActionFormData,
+  EventState,
   FieldConfig,
   FieldValue,
   isAddressFieldType,
   isAdministrativeAreaFieldType,
+  isCountryFieldType,
   isFacilityFieldType,
   isLocationFieldType,
   isRadioGroupFieldType
@@ -22,13 +23,15 @@ import {
 import {
   Address,
   AdministrativeArea,
-  RadioGroup
+  RadioGroup,
+  SelectCountry as Country
 } from '@client/v2-events/features/events/registered-fields'
 
 function useFieldStringifier() {
   const stringifyLocation = AdministrativeArea.useStringifier()
   const stringifyAddress = Address.useStringifier()
   const stringifyRadioGroup = RadioGroup.useStringifier()
+  const stringifyCountry = Country.useStringifier()
 
   return (fieldConfig: FieldConfig, value: FieldValue) => {
     const field = { config: fieldConfig, value }
@@ -49,12 +52,16 @@ function useFieldStringifier() {
       return stringifyRadioGroup(field.value, field.config)
     }
 
-    return value.toString()
+    if (isCountryFieldType(field)) {
+      return stringifyCountry(field.value)
+    }
+
+    return !value ? '' : value.toString()
   }
 }
 
 export interface RecursiveStringRecord {
-  [key: string]: string | RecursiveStringRecord
+  [key: string]: string | undefined | RecursiveStringRecord
 }
 
 /**
@@ -65,7 +72,7 @@ export const useFormDataStringifier = () => {
   const stringifier = useFieldStringifier()
   return (
     formFields: FieldConfig[],
-    values: ActionFormData
+    values: EventState
   ): RecursiveStringRecord => {
     const stringifiedValues: RecursiveStringRecord = {}
 

@@ -9,10 +9,12 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { PropsWithChildren, useEffect, useMemo } from 'react'
+import React, { PropsWithChildren, useEffect, useMemo } from 'react'
 import { useTypedParams } from 'react-router-typesafe-routes/dom'
 import {
   ActionType,
+  createEmptyDraft,
+  findActiveDrafts,
   getCurrentEventStateWithDrafts,
   getMetadataForAction
 } from '@opencrvs/commons/client'
@@ -24,6 +26,7 @@ import { useDrafts } from '@client/v2-events/features/drafts/useDrafts'
 import { createTemporaryId } from '@client/v2-events/utils'
 import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents'
 import { ROUTES } from '@client/v2-events/routes'
+import { NavigationStack } from '@client/v2-events/components/NavigationStack'
 
 type Props = PropsWithChildren<{ type: ActionType }>
 function ActionComponent({ children, type }: Props) {
@@ -34,31 +37,25 @@ function ActionComponent({ children, type }: Props) {
   const { setLocalDraft, getLocalDraftOrDefault, getRemoteDrafts } = useDrafts()
 
   const drafts = getRemoteDrafts()
-
   const [event] = getEvent.useSuspenseQuery(params.eventId)
 
-  const localDraft = getLocalDraftOrDefault({
-    id: createTemporaryId(),
-    eventId: params.eventId,
-    createdAt: new Date().toISOString(),
-    transactionId: createTemporaryId(),
-    action: {
-      type,
-      data: {},
-      metadata: {},
-      createdAt: new Date().toISOString(),
-      createdBy: '@todo',
-      createdAtLocation: '@todo'
-    }
-  })
+  const activeDraft = findActiveDrafts(event, drafts)[0]
+
+  const localDraft = getLocalDraftOrDefault(
+    activeDraft || createEmptyDraft(params.eventId, createTemporaryId(), type)
+  )
 
   /*
    * Keep the local draft updated as per the form changes
    */
-  const formValues = useEventFormData((state) => state.getFormValues())
-  const metadataValues = useEventMetadata((state) => state.getMetadata())
+  const formValues = useEventFormData((state) => state.formValues)
+  const metadataValues = useEventMetadata((state) => state.metadata)
 
   useEffect(() => {
+    if (!formValues || !metadataValues) {
+      return
+    }
+
     setLocalDraft({
       ...localDraft,
       eventId: event.id,
@@ -83,7 +80,7 @@ function ActionComponent({ children, type }: Props) {
     (state) => state.setInitialMetadataValues
   )
 
-  const draftsForThisEvent = drafts
+  const eventDrafts = drafts
     .filter((d) => d.eventId === event.id)
     .concat({
       ...localDraft,
@@ -105,13 +102,17 @@ function ActionComponent({ children, type }: Props) {
     })
 
   const eventDataWithDrafts = useMemo(
-    () => getCurrentEventStateWithDrafts(event, draftsForThisEvent),
-    [draftsForThisEvent, event]
+    () => getCurrentEventStateWithDrafts(event, eventDrafts),
+    [eventDrafts, event]
   )
 
   const declareMetadata = useMemo(() => {
-    return getMetadataForAction(event, ActionType.DECLARE, draftsForThisEvent)
-  }, [draftsForThisEvent, event])
+    return getMetadataForAction({
+      event,
+      actionType: ActionType.DECLARE,
+      drafts: eventDrafts
+    })
+  }, [eventDrafts, event])
 
   useEffect(() => {
     setInitialFormValues(eventDataWithDrafts.data)
@@ -133,7 +134,7 @@ function ActionComponent({ children, type }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return children
+  return <NavigationStack>{children}</NavigationStack>
 }
 
 export const Action = withSuspense(ActionComponent)
