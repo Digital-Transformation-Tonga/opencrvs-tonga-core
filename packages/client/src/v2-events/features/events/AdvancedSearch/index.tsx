@@ -8,17 +8,14 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-module.exports = {
-  extends: '../../.eslintrc.js',
-  env: {
-    es6: true
-  },
-  overrides: [
-    {
-      files: ['*.ts'],
-      parserOptions: {
-        project: ['./tsconfig.json']
-      }
-    }
-  ]
+
+import { withSuspense } from '@client/v2-events/components/withSuspense'
+import { AdvancedSearch } from './AdvancedSearch'
+import { SearchResultIndex as SearchResult } from './SearchResultIndex'
+
+const AdvancedSearchIndex = withSuspense(AdvancedSearch)
+const SearchResultIndex = withSuspense(SearchResult)
+export {
+  AdvancedSearchIndex as AdvancedSearch,
+  SearchResultIndex as SearchResult
 }

@@ -16,7 +16,8 @@ import {
   EventDocument,
   FileFieldValue,
   FieldType,
-  findActiveActionFields
+  findActiveActionFields,
+  LatentActions
 } from '@opencrvs/commons'
 import fetch from 'node-fetch'
 import { getEventConfigurations } from '@events/service/config/config'
@@ -27,9 +28,15 @@ function getFieldDefinitionForActionDataField(
   actionType: ActionType,
   fieldId: string
 ) {
-  const actionFields = findActiveActionFields(configuration, actionType)
+  let actionFields = findActiveActionFields(configuration, actionType)
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (
+    !actionFields &&
+    LatentActions.some((latentAction) => latentAction === actionType)
+  ) {
+    // @TODO: WHen form configuration is refactored to use "single" form, remove this.
+    actionFields = findActiveActionFields(configuration, ActionType.DECLARE)
+  }
   const fieldConfig = actionFields?.find((field) => field.id === fieldId)
   if (!fieldConfig) {
     logger.error(
@@ -46,6 +53,34 @@ function getFileNameAndSignature(url: string) {
   const { pathname, search } = new URL(url)
   const filename = pathname.split('/').pop()
   return filename + search
+}
+
+async function presignFiles(
+  filenames: string[],
+  token: string
+): Promise<string[]> {
+  const res = await fetch(new URL(`/presigned-urls`, env.DOCUMENTS_URL), {
+    method: 'POST',
+    body: JSON.stringify({ filenames }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token
+    }
+  })
+
+  if (!res.ok) {
+    logger.error('Failed to presign files', {
+      filenames,
+      status: res.status,
+      text: await res.text()
+    })
+
+    throw new Error('Failed to presign files')
+  }
+
+  const fileUrls = z.array(z.string()).parse(await res.json())
+
+  return fileUrls
 }
 
 export async function presignFilesInEvent(
@@ -74,7 +109,6 @@ export async function presignFilesInEvent(
           ).type === FieldType.FILE
       )
       .filter((value): value is [string, Exclude<FileFieldValue, null>] => {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         return value[1] !== null
       })
       .map(([fieldId, value]) => {
@@ -84,7 +118,7 @@ export async function presignFilesInEvent(
 
   const urls = (
     await presignFiles(
-      actionFileFields.map(([_, __, file]) => file.filename),
+      actionFileFields.map(([, , file]) => file.filename),
       token
     )
   ).map(getFileNameAndSignature)
@@ -135,32 +169,4 @@ export async function fileExists(filename: string, token: string) {
   })
 
   return res.ok
-}
-
-async function presignFiles(
-  filenames: string[],
-  token: string
-): Promise<string[]> {
-  const res = await fetch(new URL(`/presigned-urls`, env.DOCUMENTS_URL), {
-    method: 'POST',
-    body: JSON.stringify({ filenames }),
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: token
-    }
-  })
-
-  if (!res.ok) {
-    logger.error('Failed to presign files', {
-      filenames,
-      status: res.status,
-      text: await res.text()
-    })
-
-    throw new Error('Failed to presign files')
-  }
-
-  const fileUrls = z.array(z.string()).parse(await res.json())
-
-  return fileUrls
 }
