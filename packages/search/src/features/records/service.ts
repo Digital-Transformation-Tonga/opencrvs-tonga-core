@@ -1110,5 +1110,5 @@ export const streamAllRecords = async (includeHistoryResources: boolean) => {
   const connectedClient = await client.connect()
   const db = connectedClient.db()
   const query = aggregateRecords({ includeHistoryResources })
-  return db.collection('Composition').aggregate<Bundle>(query).stream()
+  return db.collection('Composition').aggregate<Bundle>(query, { allowDiskUse: true }).stream()
 }
