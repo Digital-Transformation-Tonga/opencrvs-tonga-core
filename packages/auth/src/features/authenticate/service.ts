@@ -210,7 +210,8 @@ export async function generateAndSendVerificationCode(
   } else {
     verificationCode = await generateVerificationCode(nonce)
   }
-
+  console.log('isDemoUser', isDemoUser)
+  console.log('Is prod and is qa env: ', env.isProd, env.QA_ENV)
   if (!env.isProd || env.QA_ENV) {
     logger.info(
       `Sending a verification to,
