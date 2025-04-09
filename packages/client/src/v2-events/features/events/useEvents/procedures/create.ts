@@ -17,7 +17,8 @@ import type {
 import {
   ActionType,
   CreatedAction,
-  getCurrentEventState
+  getCurrentEventState,
+  ActionStatus
 } from '@opencrvs/commons/client'
 
 import {
@@ -50,7 +51,7 @@ function createEventCreationMutation<P extends DecorateMutationProcedure<any>>(
   return async (params: inferInput<P>) =>
     defaultMutationFn({
       ...params,
-      data: params.data
+      declaration: params.declaration
     })
 }
 
@@ -73,7 +74,8 @@ setMutationDefaults(trpcOptionsProxy.event.create, {
           createdAt: new Date().toISOString(),
           createdBy: 'offline',
           createdAtLocation: 'TODO',
-          data: {}
+          declaration: {},
+          status: ActionStatus.Accepted
         } satisfies CreatedAction
       ]
     }

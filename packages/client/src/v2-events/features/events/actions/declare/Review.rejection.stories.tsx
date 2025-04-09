@@ -39,7 +39,7 @@ const meta: Meta<typeof ReviewIndex> = {
   title: 'Declare/Rejection',
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
   }
 }
@@ -63,6 +63,18 @@ const callTracker = {
   'event.actions.register': 0,
   'event.actions.archive': 0,
   'event.actions.reject': 0
+}
+
+const mockUser = {
+  id: '67bda93bfc07dee78ae558cf',
+  name: [
+    {
+      use: 'en',
+      given: ['Kalusha'],
+      family: 'Bwalya'
+    }
+  ],
+  role: 'SOCIAL_WORKER'
 }
 
 export const Archive: Story = {
@@ -97,7 +109,7 @@ export const Archive: Story = {
               actions: [ActionType.CREATE]
             })
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker['event.actions.declare']++
 
             return generateEventDocument({
@@ -105,7 +117,7 @@ export const Archive: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.archive.mutation(() => {
+          tRPCMsw.event.actions.archive.request.mutation(() => {
             callTracker['event.actions.archive']++
 
             return generateEventDocument({
@@ -119,7 +131,7 @@ export const Archive: Story = {
             })
           }),
 
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker['event.actions.validate']++
 
             return generateEventDocument({
@@ -131,7 +143,7 @@ export const Archive: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker['event.actions.register']++
 
             return generateEventDocument({
@@ -152,6 +164,9 @@ export const Archive: Story = {
                 getUser: generator.user.localRegistrar()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -260,7 +275,7 @@ export const SendForUpdate: Story = {
               actions: [ActionType.CREATE]
             })
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker['event.actions.declare']++
 
             return generateEventDocument({
@@ -268,7 +283,7 @@ export const SendForUpdate: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.reject.mutation(() => {
+          tRPCMsw.event.actions.reject.request.mutation(() => {
             callTracker['event.actions.reject']++
 
             return generateEventDocument({
@@ -281,7 +296,7 @@ export const SendForUpdate: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker['event.actions.validate']++
 
             return generateEventDocument({
@@ -293,7 +308,7 @@ export const SendForUpdate: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker['event.actions.register']++
 
             return generateEventDocument({
@@ -314,6 +329,9 @@ export const SendForUpdate: Story = {
                 getUser: generator.user.localRegistrar()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }

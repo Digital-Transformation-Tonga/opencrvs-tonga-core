@@ -10,15 +10,30 @@
  */
 
 import { ActionType } from '../ActionType'
-import { ActionDocument, ActionUpdate, EventState } from '../ActionDocument'
+import {
+  Action,
+  ActionDocument,
+  ActionStatus,
+  EventState,
+  RegisterAction
+} from '../ActionDocument'
 import { EventDocument } from '../EventDocument'
 import { EventIndex } from '../EventIndex'
 import { EventStatus } from '../EventMetadata'
 import { Draft } from '../Draft'
 import * as _ from 'lodash'
-import { findActiveDrafts } from '../utils'
+import { deepMerge, findActiveDrafts } from '../utils'
 
-function getStatusFromActions(actions: Array<ActionDocument>) {
+function getStatusFromActions(actions: Array<Action>) {
+  // If the event has any rejected action, we consider the event to be rejected.
+  const hasRejectedAction = actions.some(
+    (a) => a.status === ActionStatus.Rejected
+  )
+
+  if (hasRejectedAction) {
+    return EventStatus.REJECTED
+  }
+
   return actions.reduce<EventStatus>((status, action) => {
     if (action.type === ActionType.CREATE) {
       return EventStatus.CREATED
@@ -63,10 +78,11 @@ function getAssignedUserFromActions(actions: Array<ActionDocument>) {
   }, null)
 }
 
-function getData(actions: Array<ActionDocument>) {
+function aggregateActionDeclarations(actions: Array<ActionDocument>) {
   /** Types that are not taken into the aggregate values (e.g. while printing certificate)
    * stop auto filling collector form with previous print action data)
    */
+
   const excludedActions = [
     ActionType.REQUEST_CORRECTION,
     ActionType.PRINT_CERTIFICATE
@@ -90,10 +106,10 @@ function getData(actions: Array<ActionDocument>) {
       if (!requestAction) {
         return status
       }
-      return deepMerge(status, requestAction.data)
+      return deepMerge(status, requestAction.declaration)
     }
 
-    return deepMerge(status, action.data)
+    return deepMerge(status, action.declaration)
   }, {})
 }
 
@@ -102,53 +118,35 @@ function getData(actions: Array<ActionDocument>) {
  *
  * @example
  * deepDropNulls({ a: null, b: { c: null, d: 'foo' } }) // { b: { d: 'foo' } }
+ *
  */
-export function deepDropNulls<T extends Record<string, any>>(obj: T): T {
-  if (!_.isObject(obj)) return obj
+export function deepDropNulls<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj as T
+  }
 
-  return Object.entries(obj).reduce((acc: T, [key, value]) => {
-    if (_.isObject(value)) {
-      value = deepDropNulls(value)
-    }
-
-    if (value !== null) {
-      return {
-        ...acc,
-        [key]: value
+  if (obj !== null && typeof obj === 'object') {
+    return Object.entries(obj).reduce((acc, [key, value]) => {
+      const cleanedValue = deepDropNulls(value)
+      if (cleanedValue !== null) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(acc as any)[key] = cleanedValue
       }
-    }
+      return acc
+    }, {} as T)
+  }
 
-    return acc
-  }, {} as T)
-}
-
-function deepMerge(
-  currentDocument: ActionUpdate,
-  actionDocument: ActionUpdate
-) {
-  return _.mergeWith(
-    currentDocument,
-    actionDocument,
-    (previousValue, incomingValue) => {
-      if (incomingValue === undefined) {
-        return previousValue
-      }
-      if (_.isArray(incomingValue)) {
-        return incomingValue // Replace arrays instead of merging
-      }
-      if (_.isObject(previousValue) && _.isObject(incomingValue)) {
-        return undefined // Continue deep merging objects
-      }
-
-      return incomingValue // Override with latest value
-    }
-  )
+  return obj
 }
 
 export function isUndeclaredDraft(status: EventStatus): boolean {
   return status === EventStatus.CREATED
 }
-
+export function getAcceptedActions(event: EventDocument): ActionDocument[] {
+  return event.actions.filter(
+    (a): a is ActionDocument => a.status === ActionStatus.Accepted
+  )
+}
 export function getCurrentEventState(event: EventDocument): EventIndex {
   const creationAction = event.actions.find(
     (action) => action.type === ActionType.CREATE
@@ -158,7 +156,15 @@ export function getCurrentEventState(event: EventDocument): EventIndex {
     throw new Error(`Event ${event.id} has no creation action`)
   }
 
-  const latestAction = event.actions[event.actions.length - 1]
+  const activeActions = getAcceptedActions(event)
+  const latestAction = activeActions[activeActions.length - 1]
+
+  const registrationAction = activeActions.find(
+    (a): a is RegisterAction =>
+      a.type === ActionType.REGISTER && a.status === ActionStatus.Accepted
+  )
+
+  const registrationNumber = registrationAction?.registrationNumber ?? null
 
   return deepDropNulls({
     id: event.id,
@@ -168,10 +174,11 @@ export function getCurrentEventState(event: EventDocument): EventIndex {
     createdBy: creationAction.createdBy,
     createdAtLocation: creationAction.createdAtLocation,
     modifiedAt: latestAction.createdAt,
-    assignedTo: getAssignedUserFromActions(event.actions),
+    assignedTo: getAssignedUserFromActions(activeActions),
     updatedBy: latestAction.createdBy,
-    data: getData(event.actions),
-    trackingId: event.trackingId
+    declaration: aggregateActionDeclarations(activeActions),
+    trackingId: event.trackingId,
+    registrationNumber
   })
 }
 
@@ -231,14 +238,30 @@ export function applyDraftsToEventIndex(
 
   return {
     ...eventIndex,
-    data: {
-      ...eventIndex.data,
-      ...activeDrafts[activeDrafts.length - 1].data
+    declaration: {
+      ...eventIndex.declaration,
+      ...activeDrafts[activeDrafts.length - 1].declaration
     }
   }
 }
 
-export function getMetadataForAction({
+/**
+ * Annotation is always specific to the action. when action with annotation is triggered multiple times,
+ * previous annotations should have no effect on the new action annotation. (e.g. printing once should not pre-select print form fields)
+ *
+ * @returns annotation generated from drafts
+ */
+export function getAnnotationFromDrafts(drafts: Draft[]) {
+  const actions = drafts.map((draft) => draft.action)
+
+  const annotation = actions.reduce((ann, action) => {
+    return deepMerge(ann, action.annotation ?? {})
+  }, {})
+
+  return deepDropNulls(annotation)
+}
+
+export function getActionAnnotation({
   event,
   actionType,
   drafts
@@ -247,7 +270,10 @@ export function getMetadataForAction({
   actionType: ActionType
   drafts: Draft[]
 }): EventState {
-  const action = event.actions.find((action) => actionType === action.type)
+  const activeActions = getAcceptedActions(event)
+  const action = activeActions.find(
+    (activeAction) => actionType === activeAction.type
+  )
 
   const eventDrafts = drafts.filter((draft) => draft.eventId === event.id)
 
@@ -256,9 +282,9 @@ export function getMetadataForAction({
     ...eventDrafts.map((draft) => draft.action)
   ].sort()
 
-  const metadata = sorted.reduce((metadata, action) => {
-    return deepMerge(metadata, action.metadata ?? {})
+  const annotation = sorted.reduce((ann, sortedAction) => {
+    return deepMerge(ann, sortedAction.annotation ?? {})
   }, {})
 
-  return deepDropNulls(metadata)
+  return deepDropNulls(annotation)
 }
