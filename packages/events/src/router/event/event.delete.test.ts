@@ -9,11 +9,11 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
+import { TRPCError } from '@trpc/server'
+import { ActionType, DraftInput, SCOPES } from '@opencrvs/commons'
 import { env } from '@events/environment'
 import { mswServer } from '@events/tests/msw'
 import { createTestClient, setupTestCase } from '@events/tests/utils'
-import { ActionType, DraftInput, SCOPES } from '@opencrvs/commons'
-import { TRPCError } from '@trpc/server'
 
 test('prevents forbidden access if missing required scope', async () => {
   const { user } = await setupTestCase()
@@ -96,8 +96,8 @@ describe('check unreferenced draft attachments are deleted while final action su
     const getDraft = (n: number): DraftInput => {
       return {
         type: ActionType.DECLARE,
-        data: {
-          ...generator.event.actions.declare(event.id).data,
+        declaration: {
+          ...generator.event.actions.declare(event.id).declaration,
           'applicant.image': {
             type: 'image/png',
             originalFilename: `${n}-abcd.png`,
@@ -110,8 +110,8 @@ describe('check unreferenced draft attachments are deleted while final action su
     }
     const getDeclaration = (n: number) => {
       return {
-        data: {
-          ...generator.event.actions.declare(event.id).data,
+        declaration: {
+          ...generator.event.actions.declare(event.id).declaration,
           'applicant.image': {
             type: 'image/png',
             originalFilename: `${n}-abcd.png`,
@@ -131,7 +131,7 @@ describe('check unreferenced draft attachments are deleted while final action su
     await client.event.draft.create(getDraft(5))
 
     // declaring final action submission
-    await client.event.actions.declare(getDeclaration(6))
+    await client.event.actions.declare.request(getDeclaration(6))
 
     // file attachment exist api should be called once
     expect(fileExistMock.mock.calls).toHaveLength(1)

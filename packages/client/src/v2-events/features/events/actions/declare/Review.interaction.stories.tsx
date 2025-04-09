@@ -40,7 +40,7 @@ const meta: Meta<typeof ReviewIndex> = {
   title: 'Declare/Interaction',
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
   }
 }
@@ -87,6 +87,18 @@ const eventId = eventDocument.id
 
 const draft = generateEventDraftDocument(eventId, ActionType.REGISTER)
 
+const mockUser = {
+  id: '67bda93bfc07dee78ae558cf',
+  name: [
+    {
+      use: 'en',
+      given: ['Kalusha'],
+      family: 'Bwalya'
+    }
+  ],
+  role: 'SOCIAL_WORKER'
+}
+
 export const ReviewForLocalRegistrarCompleteInteraction: Story = {
   parameters: {
     reactRouter: {
@@ -118,7 +130,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.localRegistrar['event.actions.declare']++
 
             return generateEventDocument({
@@ -126,7 +138,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.localRegistrar['event.actions.validate']++
 
             return generateEventDocument({
@@ -138,7 +150,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.localRegistrar['event.actions.register']++
 
             return generateEventDocument({
@@ -159,6 +171,9 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
                 getUser: generator.user.localRegistrar()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -201,7 +216,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
 export const ReviewForRegistrationAgentCompleteInteraction: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
 
     window.localStorage.setItem(
@@ -239,7 +254,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.registrationAgent['event.actions.declare']++
 
             return generateEventDocument({
@@ -247,7 +262,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.registrationAgent['event.actions.validate']++
 
             return generateEventDocument({
@@ -259,7 +274,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.registrationAgent['event.actions.register']++
 
             return generateEventDocument({
@@ -280,6 +295,9 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
                 getUser: generator.user.registrationAgent()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -322,7 +340,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
 export const ReviewForFieldAgentCompleteInteraction: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
 
     window.localStorage.setItem('opencrvs', generator.user.token.fieldAgent)
@@ -357,7 +375,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.fieldAgent['event.actions.declare']++
 
             return generateEventDocument({
@@ -365,7 +383,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.fieldAgent['event.actions.validate']++
 
             return generateEventDocument({
@@ -377,7 +395,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.fieldAgent['event.actions.register']++
 
             return generateEventDocument({
@@ -398,6 +416,9 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
                 getUser: generator.user.registrationAgent()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -435,7 +456,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
 export const ReviewForFieldAgentIncompleteInteraction: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
 
     window.localStorage.setItem('opencrvs', generator.user.token.fieldAgent)
@@ -470,7 +491,7 @@ export const ReviewForFieldAgentIncompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.fieldAgent['event.actions.declare']++
 
             return generateEventDocument({
@@ -478,7 +499,7 @@ export const ReviewForFieldAgentIncompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.fieldAgent['event.actions.validate']++
 
             return generateEventDocument({
@@ -490,7 +511,7 @@ export const ReviewForFieldAgentIncompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.fieldAgent['event.actions.register']++
 
             return generateEventDocument({
@@ -511,6 +532,9 @@ export const ReviewForFieldAgentIncompleteInteraction: Story = {
                 getUser: generator.user.registrationAgent()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -550,7 +574,7 @@ export const ReviewForFieldAgentIncompleteInteraction: Story = {
 export const ChangeFieldInReview: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
   },
   parameters: {
