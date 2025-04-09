@@ -9,16 +9,10 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { env } from '@events/environment'
-import {
-  ActionInput,
-  EventConfig,
-  EventDocument,
-  getOrThrow,
-  logger
-} from '@opencrvs/commons'
 import fetch from 'node-fetch'
 import { array } from 'zod'
+import { EventConfig, getOrThrow } from '@opencrvs/commons'
+import { env } from '@events/environment'
 
 export async function getEventConfigurations(token: string) {
   const res = await fetch(new URL('/events', env.COUNTRY_CONFIG_URL), {
@@ -60,29 +54,4 @@ export async function getEventConfigurationById({
     }),
     `No configuration found for event type: ${eventType}`
   )
-}
-
-export async function notifyOnAction(
-  action: ActionInput,
-  event: EventDocument,
-  token: string
-) {
-  try {
-    await fetch(
-      new URL(
-        `/events/${event.type}/actions/${action.type}`,
-        env.COUNTRY_CONFIG_URL
-      ),
-      {
-        method: 'POST',
-        body: JSON.stringify(event),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: token
-        }
-      }
-    )
-  } catch (error) {
-    logger.error(error)
-  }
 }

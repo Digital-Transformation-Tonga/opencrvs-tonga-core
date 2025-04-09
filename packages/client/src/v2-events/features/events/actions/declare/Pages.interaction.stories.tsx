@@ -13,6 +13,7 @@ import { expect, fn, userEvent, waitFor, within } from '@storybook/test'
 import { createTRPCMsw, httpLink } from '@vafanassieff/msw-trpc'
 import superjson from 'superjson'
 import {
+  ActionStatus,
   ActionType,
   Draft,
   getCurrentEventState,
@@ -58,13 +59,14 @@ function createDraftHandlers() {
         transactionId: req.transactionId,
         createdAt: new Date().toISOString(),
         action: {
+          status: ActionStatus.Accepted,
           ...req,
           createdBy: 'test-user',
           createdAtLocation: 'test-location',
           createdAt: new Date().toISOString()
         }
       }
-      spy()
+      spy(req)
       draftList.mockReturnValue([response])
       return response
     }),
@@ -187,7 +189,8 @@ export const DraftShownInForm: Story = {
     const button = await canvas.findByRole('button', { name: /Save & Exit/ })
     await userEvent.click(button)
     const modal = within(await canvas.findByRole('dialog'))
-    await userEvent.click(modal.getByRole('button', { name: /Confirm/ }))
+    await userEvent.click(await modal.findByRole('button', { name: /Confirm/ }))
+
     await userEvent.click(await canvas.findByText('Clearly Draft'))
     await userEvent.click(await canvas.findByRole('button', { name: /Action/ }))
     await userEvent.click(await canvas.findByText(/Send an application/))
