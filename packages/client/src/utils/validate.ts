@@ -307,17 +307,17 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-        isDateNotInFuture(cast) &&
-        isAValidDateFormat(cast) &&
-        isDateNotAfterBirthEvent(cast, drafts as IFormData)
-      ? isDateNotAfterDeath(cast, drafts as IFormData)
-        ? undefined
-        : {
-            message: messages.isDateNotAfterDeath
-          }
+      isDateNotInFuture(cast) &&
+      isAValidDateFormat(cast) &&
+      isDateNotAfterBirthEvent(cast, drafts as IFormData)
+    ? isDateNotAfterDeath(cast, drafts as IFormData)
+      ? undefined
       : {
-          message: messages.isValidBirthDate
+          message: messages.isDateNotAfterDeath
         }
+    : {
+        message: messages.isValidBirthDate
+      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
@@ -326,11 +326,11 @@ export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-        isAValidDateFormat(childBirthDate) &&
-        isDateNotInFuture(childBirthDate) &&
-        isDateNotPastLimit(childBirthDate, pastDateLimit)
-      ? undefined
-      : { message: messages.isValidBirthDate }
+      isAValidDateFormat(childBirthDate) &&
+      isDateNotInFuture(childBirthDate) &&
+      isDateNotPastLimit(childBirthDate, pastDateLimit)
+    ? undefined
+    : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -765,8 +765,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-      ? undefined
-      : { message: messages.greaterThanZero }
+    ? undefined
+    : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
@@ -777,3 +777,26 @@ export const notGreaterThan =
       ? undefined
       : { message: messages.notGreaterThan, props: { maxValue } }
   }
+
+export const validateMaxFileSize = (value: IFormFieldValue) => {
+  const maxFileSize = 5 * 1024 * 1024 // 5MB
+
+  if (value) {
+    const base64Value = value.data as string
+    const base64Data = base64Value.split(',')[1] || base64Value
+    const padding = (base64Data.match(/=+$/) || [''])[0].length
+    const binarySizeinBytes = (base64Data.length * 3) / 4 - padding
+
+    if (binarySizeinBytes > maxFileSize) {
+      return {
+        message: {
+          defaultMessage: 'File size must be less than 5MB',
+          description: 'text for error on file size',
+          id: 'validateMaxFileSize'
+        }
+      } satisfies IValidationResult
+    }
+  }
+
+  return undefined
+}
