@@ -214,7 +214,11 @@ function userSectionFormType(): ISerializedFormSection {
             allowedDocType: ['image/png'],
             initialValue: '',
             required: true,
-            validator: []
+            validator: [
+              {
+                operation: 'validateMaxFileSize'
+              }
+            ]
           }
         ]
       }
