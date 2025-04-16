@@ -778,3 +778,26 @@ export const notGreaterThan =
       ? undefined
       : { message: messages.notGreaterThan, props: { maxValue } }
   }
+
+export const validateMaxFileSize = (value: IFormFieldValue) => {
+  const maxFileSize = 5 * 1024 * 1024 // 5MB
+
+  if (value) {
+    const base64Value = value.data as string
+    const base64Data = base64Value.split(',')[1] || base64Value
+    const padding = (base64Data.match(/=+$/) || [''])[0].length
+    const binarySizeinBytes = (base64Data.length * 3) / 4 - padding
+
+    if (binarySizeinBytes > maxFileSize) {
+      return {
+        message: {
+          defaultMessage: 'File size must be less than 5MB',
+          description: 'text for error on file size',
+          id: 'validateMaxFileSize'
+        }
+      } satisfies IValidationResult
+    }
+  }
+
+  return undefined
+}
