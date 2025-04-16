@@ -15,12 +15,10 @@ import {
   ActionType,
   createEmptyDraft,
   findActiveDrafts,
-  getCurrentEventStateWithDrafts,
-  getMetadataForAction
+  getAnnotationFromDrafts
 } from '@opencrvs/commons/client'
 import { withSuspense } from '@client/v2-events/components/withSuspense'
-import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
-import { useEventMetadata } from '@client/v2-events/features/events/useEventMeta'
+import { useActionAnnotation } from '@client/v2-events/features/events/useActionAnnotation'
 
 import { useDrafts } from '@client/v2-events/features/drafts/useDrafts'
 import { createTemporaryId } from '@client/v2-events/utils'
@@ -28,8 +26,20 @@ import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents
 import { ROUTES } from '@client/v2-events/routes'
 import { NavigationStack } from '@client/v2-events/components/NavigationStack'
 
-type Props = PropsWithChildren<{ type: ActionType }>
-function ActionComponent({ children, type }: Props) {
+// @TODO: Update type to more strict once REQUEST_CORRECTION uses annotations
+type Props = PropsWithChildren<{ actionType: ActionType }>
+
+/**
+ * Creates a wrapper component for the annotation action.
+ * Manages the state of the annotation action and its local draft.
+ *
+ * Annotation is always specific to the action. Annotation action does not modify declaration.
+ * Annotation action can be triggered multiple times. Annotation state should be based on draft, if available.
+ * Annotation action is always an "independent" action, and should not base its state on previous action of same type.
+ *
+ * This differs from DeclarationAction, which is a series of one-time actions that modify the declaration.
+ */
+function AnnotationActionComponent({ children, actionType }: Props) {
   const params = useTypedParams(ROUTES.V2.EVENTS.DECLARE.PAGES)
 
   const { getEvent } = useEvents()
@@ -37,23 +47,20 @@ function ActionComponent({ children, type }: Props) {
   const { setLocalDraft, getLocalDraftOrDefault, getRemoteDrafts } = useDrafts()
 
   const drafts = getRemoteDrafts()
+
   const [event] = getEvent.useSuspenseQuery(params.eventId)
 
   const activeDraft = findActiveDrafts(event, drafts)[0]
-
   const localDraft = getLocalDraftOrDefault(
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    activeDraft || createEmptyDraft(params.eventId, createTemporaryId(), type)
+    activeDraft ||
+      createEmptyDraft(params.eventId, createTemporaryId(), actionType)
   )
 
-  /*
-   * Keep the local draft updated as per the form changes
-   */
-  const formValues = useEventFormData((state) => state.formValues)
-  const metadataValues = useEventMetadata((state) => state.metadata)
+  const annotation = useActionAnnotation((state) => state.annotation)
 
   useEffect(() => {
-    if (!formValues || !metadataValues) {
+    if (!annotation) {
       return
     }
 
@@ -62,23 +69,17 @@ function ActionComponent({ children, type }: Props) {
       eventId: event.id,
       action: {
         ...localDraft.action,
-        data: formValues,
-        metadata: metadataValues
+        annotation
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formValues, metadataValues])
+  }, [annotation])
 
   /*
    * Initialize the form state
    */
-
-  const setInitialFormValues = useEventFormData(
-    (state) => state.setInitialFormValues
-  )
-
-  const setInitialMetadataValues = useEventMetadata(
-    (state) => state.setInitialMetadataValues
+  const setInitialAnnotation = useActionAnnotation(
+    (state) => state.setInitialAnnotation
   )
 
   const eventDrafts = drafts
@@ -102,22 +103,12 @@ function ActionComponent({ children, type }: Props) {
       }
     })
 
-  const eventDataWithDrafts = useMemo(
-    () => getCurrentEventStateWithDrafts(event, eventDrafts),
-    [eventDrafts, event]
-  )
-
-  const declareMetadata = useMemo(() => {
-    return getMetadataForAction({
-      event,
-      actionType: ActionType.DECLARE,
-      drafts: eventDrafts
-    })
-  }, [eventDrafts, event])
+  const actionAnnotation = useMemo(() => {
+    return getAnnotationFromDrafts(eventDrafts)
+  }, [eventDrafts])
 
   useEffect(() => {
-    setInitialFormValues(eventDataWithDrafts.data)
-    setInitialMetadataValues(declareMetadata)
+    setInitialAnnotation(actionAnnotation)
 
     return () => {
       /*
@@ -138,4 +129,4 @@ function ActionComponent({ children, type }: Props) {
   return <NavigationStack>{children}</NavigationStack>
 }
 
-export const Action = withSuspense(ActionComponent)
+export const AnnotationAction = withSuspense(AnnotationActionComponent)

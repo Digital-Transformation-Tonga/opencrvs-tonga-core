@@ -30,9 +30,10 @@ import { router as workqueueRouter } from '@client/v2-events/features/workqueues
 import { EventOverviewLayout, WorkqueueLayout } from '@client/v2-events/layouts'
 import { TRPCErrorBoundary } from '@client/v2-events/routes/TRPCErrorBoundary'
 import { TRPCProvider } from '@client/v2-events/trpc'
-import { Action } from '@client/v2-events/features/events/components/Action'
+import { DeclarationAction } from '@client/v2-events/features/events/components/Action/DeclarationAction'
 import { NavigationHistoryProvider } from '@client/v2-events/components/NavigationStack'
-import { ReadOnlyView } from '@client/v2-events/features/events/ReadOnlyView'
+import { ReadonlyViewIndex } from '@client/v2-events/features/events/ReadOnlyView'
+import { AnnotationAction } from '@client/v2-events/features/events/components/Action/AnnotationAction'
 import { ROUTES } from './routes'
 
 /**
@@ -57,7 +58,7 @@ export const routesConfig = {
     workqueueRouter,
     {
       path: ROUTES.V2.EVENTS.VIEW.path,
-      element: <ReadOnlyView />
+      element: <ReadonlyViewIndex />
     },
     {
       path: ROUTES.V2.EVENTS.OVERVIEW.path,
@@ -78,9 +79,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.DECLARE.path,
       element: (
-        <Action type={ActionType.DECLARE}>
+        <DeclarationAction actionType={ActionType.DECLARE}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -100,9 +101,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.VALIDATE.path,
       element: (
-        <Action type={ActionType.VALIDATE}>
+        <DeclarationAction actionType={ActionType.VALIDATE}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -123,9 +124,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.REGISTER.path,
       element: (
-        <Action type={ActionType.REGISTER}>
+        <DeclarationAction actionType={ActionType.REGISTER}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -145,9 +146,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.PRINT_CERTIFICATE.path,
       element: (
-        <Action type={ActionType.PRINT_CERTIFICATE}>
+        <AnnotationAction actionType={ActionType.PRINT_CERTIFICATE}>
           <Outlet />
-        </Action>
+        </AnnotationAction>
       ),
       children: [
         {
