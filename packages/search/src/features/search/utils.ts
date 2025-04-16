@@ -694,8 +694,8 @@ export async function advancedQueryBuilder(
 
   if (params.registrationNumber) {
     must.push({
-      match: {
-        registrationNumber: params.registrationNumber
+      term: {
+        'registrationNumber.keyword': params.registrationNumber
       }
     })
   }
