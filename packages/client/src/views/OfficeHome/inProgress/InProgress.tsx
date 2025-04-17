@@ -480,9 +480,9 @@ function InProgressComponent(props: IRegistrarHomeProps) {
       : transformRemoteDraftsContent(notificationData).length <= 0
 
   const noResultMessage =
-    !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? intl.formatMessage(wqMessages.noRecordsFieldAgents)
-      : intl.formatMessage(wqMessages.noRecordsHealthSystem)
+    // !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
+    //   ? intl.formatMessage(wqMessages.noRecordsFieldAgents)
+    intl.formatMessage(wqMessages.noRecordsHealthSystem)
 
   const tabs = getTabs(
     selectorId,
