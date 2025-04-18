@@ -167,7 +167,11 @@ class UserFormComponent extends React.Component<IFullProps, IState> {
                 this.setAllFormFieldsTouched = setTouchedFunc
               }}
               draftData={{ user: formData }}
-              requiredErrorMessage={messages.requiredForNewUser}
+              requiredErrorMessage={
+                userId
+                  ? messages.requiredForUpdateUser
+                  : messages.requiredForNewUser
+              }
               onUploadingStateChanged={this.onUploadingStateChanged}
             />
             <Action>
