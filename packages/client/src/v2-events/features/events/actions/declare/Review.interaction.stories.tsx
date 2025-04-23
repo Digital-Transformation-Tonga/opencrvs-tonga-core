@@ -23,10 +23,11 @@ import {
 import { ROUTES, routesConfig } from '@client/v2-events/routes'
 import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
 import { AppRouter } from '@client/v2-events/trpc'
-// eslint-disable-next-line
 import { testDataGenerator } from '@client/tests/test-data-generators'
 import { tennisClubMembershipEventIndex } from '@client/v2-events/features/events/fixtures'
 import { ReviewIndex } from './Review'
+
+/* eslint-disable max-lines */
 
 const generator = testDataGenerator()
 
@@ -39,7 +40,7 @@ const meta: Meta<typeof ReviewIndex> = {
   title: 'Declare/Interaction',
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
   }
 }
@@ -86,6 +87,18 @@ const eventId = eventDocument.id
 
 const draft = generateEventDraftDocument(eventId, ActionType.REGISTER)
 
+const mockUser = {
+  id: '67bda93bfc07dee78ae558cf',
+  name: [
+    {
+      use: 'en',
+      given: ['Kalusha'],
+      family: 'Bwalya'
+    }
+  ],
+  role: 'SOCIAL_WORKER'
+}
+
 export const ReviewForLocalRegistrarCompleteInteraction: Story = {
   parameters: {
     reactRouter: {
@@ -117,7 +130,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.localRegistrar['event.actions.declare']++
 
             return generateEventDocument({
@@ -125,7 +138,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.localRegistrar['event.actions.validate']++
 
             return generateEventDocument({
@@ -137,7 +150,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.localRegistrar['event.actions.register']++
 
             return generateEventDocument({
@@ -158,6 +171,9 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
                 getUser: generator.user.localRegistrar()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -200,7 +216,7 @@ export const ReviewForLocalRegistrarCompleteInteraction: Story = {
 export const ReviewForRegistrationAgentCompleteInteraction: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
 
     window.localStorage.setItem(
@@ -238,7 +254,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.registrationAgent['event.actions.declare']++
 
             return generateEventDocument({
@@ -246,7 +262,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.registrationAgent['event.actions.validate']++
 
             return generateEventDocument({
@@ -258,7 +274,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.registrationAgent['event.actions.register']++
 
             return generateEventDocument({
@@ -279,6 +295,9 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
                 getUser: generator.user.registrationAgent()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -321,7 +340,7 @@ export const ReviewForRegistrationAgentCompleteInteraction: Story = {
 export const ReviewForFieldAgentCompleteInteraction: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
 
     window.localStorage.setItem('opencrvs', generator.user.token.fieldAgent)
@@ -356,7 +375,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
 
             return eventDocument
           }),
-          tRPCMsw.event.actions.declare.mutation(() => {
+          tRPCMsw.event.actions.declare.request.mutation(() => {
             callTracker.fieldAgent['event.actions.declare']++
 
             return generateEventDocument({
@@ -364,7 +383,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
               actions: [ActionType.CREATE, ActionType.DECLARE]
             })
           }),
-          tRPCMsw.event.actions.validate.mutation(() => {
+          tRPCMsw.event.actions.validate.request.mutation(() => {
             callTracker.fieldAgent['event.actions.validate']++
 
             return generateEventDocument({
@@ -376,7 +395,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
               ]
             })
           }),
-          tRPCMsw.event.actions.register.mutation(() => {
+          tRPCMsw.event.actions.register.request.mutation(() => {
             callTracker.fieldAgent['event.actions.register']++
 
             return generateEventDocument({
@@ -397,6 +416,125 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
                 getUser: generator.user.registrationAgent()
               }
             })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
+          })
+        ]
+      }
+    }
+  },
+  play: async ({ canvasElement, step }) => {
+    await step('Modal has scope based content', async () => {
+      const canvas = within(canvasElement)
+      await userEvent.click(
+        await canvas.findByRole('button', { name: 'Send for review' })
+      )
+
+      const modal = within(await canvas.findByRole('dialog'))
+
+      await modal.findByText('Send for review?')
+      await modal.findByText('This declaration will be sent for review')
+      await modal.findByRole('button', { name: 'Cancel' })
+      await userEvent.click(
+        await modal.findByRole('button', { name: 'Confirm' })
+      )
+    })
+
+    await step('Confirm action triggers scope based actions', async () => {
+      await within(canvasElement).findByText('All events')
+      await waitFor(async () => {
+        await expect(callTracker.fieldAgent['event.create']).toBe(0)
+        await expect(callTracker.fieldAgent['event.actions.declare']).toBe(1)
+        await expect(callTracker.fieldAgent['event.actions.validate']).toBe(0)
+        await expect(callTracker.fieldAgent['event.actions.register']).toBe(0)
+      })
+    })
+  }
+}
+
+export const ReviewForFieldAgentIncompleteInteraction: Story = {
+  beforeEach: () => {
+    useEventFormData.setState({
+      formValues: getCurrentEventState(declareEventDocument).declaration
+    })
+
+    window.localStorage.setItem('opencrvs', generator.user.token.fieldAgent)
+  },
+  parameters: {
+    reactRouter: {
+      router: routesConfig,
+      initialPath: ROUTES.V2.EVENTS.DECLARE.REVIEW.buildPath({
+        eventId: declareEventDocument.id
+      })
+    },
+    chromatic: { disableSnapshot: true },
+    msw: {
+      handlers: {
+        drafts: [
+          tRPCMsw.event.draft.list.query(() => {
+            return []
+          })
+        ],
+        events: [
+          tRPCMsw.event.config.get.query(() => {
+            return [tennisClubMembershipEvent]
+          }),
+          tRPCMsw.event.get.query(() => {
+            return eventDocument
+          }),
+          tRPCMsw.event.list.query(() => {
+            return [tennisClubMembershipEventIndex]
+          }),
+          tRPCMsw.event.create.mutation(() => {
+            callTracker.fieldAgent['event.create']++
+
+            return eventDocument
+          }),
+          tRPCMsw.event.actions.declare.request.mutation(() => {
+            callTracker.fieldAgent['event.actions.declare']++
+
+            return generateEventDocument({
+              configuration: tennisClubMembershipEvent,
+              actions: [ActionType.CREATE, ActionType.DECLARE]
+            })
+          }),
+          tRPCMsw.event.actions.validate.request.mutation(() => {
+            callTracker.fieldAgent['event.actions.validate']++
+
+            return generateEventDocument({
+              configuration: tennisClubMembershipEvent,
+              actions: [
+                ActionType.CREATE,
+                ActionType.DECLARE,
+                ActionType.VALIDATE
+              ]
+            })
+          }),
+          tRPCMsw.event.actions.register.request.mutation(() => {
+            callTracker.fieldAgent['event.actions.register']++
+
+            return generateEventDocument({
+              configuration: tennisClubMembershipEvent,
+              actions: [
+                ActionType.CREATE,
+                ActionType.DECLARE,
+                ActionType.VALIDATE,
+                ActionType.REGISTER
+              ]
+            })
+          })
+        ],
+        user: [
+          graphql.query('fetchUser', () => {
+            return HttpResponse.json({
+              data: {
+                getUser: generator.user.registrationAgent()
+              }
+            })
+          }),
+          tRPCMsw.user.list.query(([id]) => {
+            return [mockUser]
           })
         ]
       }
@@ -413,6 +551,9 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
 
       await modal.findByText('Send for review?')
       await modal.findByRole('button', { name: 'Cancel' })
+      await modal.findByText(
+        'This incomplete declaration will be sent for review.'
+      )
       await userEvent.click(
         await modal.findByRole('button', { name: 'Confirm' })
       )
@@ -433,7 +574,7 @@ export const ReviewForFieldAgentCompleteInteraction: Story = {
 export const ChangeFieldInReview: Story = {
   beforeEach: () => {
     useEventFormData.setState({
-      formValues: getCurrentEventState(declareEventDocument).data
+      formValues: getCurrentEventState(declareEventDocument).declaration
     })
   },
   parameters: {

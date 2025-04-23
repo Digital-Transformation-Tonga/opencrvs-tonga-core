@@ -40,6 +40,7 @@ interface IValidationMessages
   requiredBasic: MessageDescriptor
   required: MessageDescriptor
   requiredForNewUser: MessageDescriptor
+  requiredForUpdateUser: MessageDescriptor
   requiredReasonForCorrection: MessageDescriptor
   requiredSymbol: MessageDescriptor
   validBirthRegistrationNumber: MessageDescriptor
@@ -220,6 +221,12 @@ const messagesToDefine: IValidationMessages = {
     description:
       'The error message that appears on required fields on new user form',
     id: 'validations.userform.required'
+  },
+  requiredForUpdateUser: {
+    defaultMessage: 'Required to update a existing user',
+    description:
+      'The error message that appears on required fields on update user form',
+    id: 'validations.userform.requiredUpdate'
   },
   requiredReasonForCorrection: {
     defaultMessage: 'Please provide a reason for this correction',

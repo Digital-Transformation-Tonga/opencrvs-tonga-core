@@ -8,11 +8,13 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-
-import { createTestClient, setupTestCase } from '@events/tests/utils'
-import { ActionType, SCOPES } from '@opencrvs/commons'
-import { tennisClubMembershipEvent } from '@opencrvs/commons/fixtures'
 import { TRPCError } from '@trpc/server'
+import { ActionType, SCOPES } from '@opencrvs/commons'
+import {
+  createTestClient,
+  setupTestCase,
+  TEST_USER_DEFAULT_SCOPES
+} from '@events/tests/utils'
 
 test('prevents forbidden access if missing required scope', async () => {
   const { user } = await setupTestCase()
@@ -61,28 +63,47 @@ test('Returns event', async () => {
 
 test('Returns event with all actions', async () => {
   const { user, generator } = await setupTestCase()
-  const client = createTestClient(user)
+  const client = createTestClient(user, [
+    ...TEST_USER_DEFAULT_SCOPES,
+    SCOPES.RECORD_SUBMIT_INCOMPLETE
+  ])
 
   const event = await client.event.create(generator.event.create())
+  await client.event.actions.notify.request(
+    generator.event.actions.notify(event.id)
+  )
 
-  await client.event.actions.declare(generator.event.actions.declare(event.id))
+  await client.event.actions.declare.request(
+    generator.event.actions.declare(event.id)
+  )
 
-  await client.event.actions.validate(
+  await client.event.actions.validate.request(
     generator.event.actions.validate(event.id)
   )
 
-  await client.event.actions.reject(generator.event.actions.reject(event.id))
-  await client.event.actions.archive(generator.event.actions.archive(event.id))
+  await client.event.actions.reject.request(
+    generator.event.actions.reject(event.id)
+  )
+  await client.event.actions.archive.request(
+    generator.event.actions.archive(event.id)
+  )
 
-  await client.event.actions.register(
+  await client.event.actions.register.request(
     generator.event.actions.register(event.id)
   )
 
-  await client.event.actions.printCertificate(
+  await client.event.actions.printCertificate.request(
     generator.event.actions.printCertificate(event.id)
   )
   const correctionRequest = await client.event.actions.correction.request(
     generator.event.actions.correction.request(event.id)
+  )
+
+  await client.event.actions.correction.reject(
+    generator.event.actions.correction.reject(
+      event.id,
+      correctionRequest.actions[correctionRequest.actions.length - 1].id
+    )
   )
 
   await client.event.actions.correction.approve(
@@ -92,15 +113,12 @@ test('Returns event with all actions', async () => {
     )
   )
 
-  const fetchedEvent = await client.event.get(event.id)
-
-  // should throw when test is not updated after updating fixture or something breaks.
-  expect(fetchedEvent.actions).toHaveLength(
-    tennisClubMembershipEvent.actions.length + 2 // CREATE and READ EVENT
-  )
-
+  await client.event.get(event.id)
   const secondTimefetchedEvent = await client.event.get(event.id)
-  expect(secondTimefetchedEvent.actions).toHaveLength(
-    tennisClubMembershipEvent.actions.length + 3 // 1 CREATE and 2 READ EVENT
-  )
+
+  expect(
+    secondTimefetchedEvent.actions.filter(
+      (action) => action.type === ActionType.READ
+    )
+  ).toHaveLength(2)
 })

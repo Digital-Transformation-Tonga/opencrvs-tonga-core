@@ -9,20 +9,16 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { TokenWithBearer } from '@opencrvs/commons'
-import { AnyTRPCMiddlewareFunction } from '@trpc/server'
+import type { AnyTRPCMiddlewareFunction } from '@trpc/server'
+import { ActionInputWithType, TokenWithBearer } from '@opencrvs/commons'
 
-import { z } from 'zod'
-
-const ContextSchema = z.object({
-  user: z.object({
-    id: z.string(),
-    primaryOfficeId: z.string()
-  }),
-  token: z.string() as z.ZodType<TokenWithBearer>
-})
-
-export type Context = z.infer<typeof ContextSchema>
+export interface Context {
+  user: {
+    id: string
+    primaryOfficeId: string
+  }
+  token: TokenWithBearer
+}
 
 /**
  * TRPC Middleware options with correct context.
@@ -32,3 +28,7 @@ export type MiddlewareOptions = Omit<
   Parameters<AnyTRPCMiddlewareFunction>[0],
   'ctx'
 > & { ctx: Context }
+
+export type ActionMiddlewareOptions = Omit<MiddlewareOptions, 'input'> & {
+  input: ActionInputWithType
+}

@@ -113,7 +113,7 @@ export const GetDeclarationInfo = ({
       ...info,
       type: intl.formatMessage(constantsMessages.birth),
       dateOfBirth: declaration?.dateOfBirth,
-      placeOfBirth: declaration?.placeOfBirth
+      placeOfBirth: declaration?.childBirthPlace
     }
   } else if (info.type === 'Death') {
     if (
@@ -130,7 +130,7 @@ export const GetDeclarationInfo = ({
       ...info,
       type: intl.formatMessage(constantsMessages.death),
       dateOfDeath: declaration?.dateOfDeath,
-      placeOfDeath: declaration?.placeOfDeath
+      placeOfDeath: declaration?.deceasedDeathPlace
     }
   } else if (info.type === 'Marriage') {
     if (

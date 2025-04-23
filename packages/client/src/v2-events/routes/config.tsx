@@ -16,21 +16,24 @@ import { ActionType } from '@opencrvs/commons/client'
 import { Debug } from '@client/v2-events/features/debug/debug'
 import { router as correctionRouter } from '@client/v2-events/features/events/actions/correct/request/router'
 import * as Declare from '@client/v2-events/features/events/actions/declare'
-import { DeleteEvent } from '@client/v2-events/features/events/actions/delete'
+import { DeleteEventIndex } from '@client/v2-events/features/events/actions/delete'
 import * as PrintCertificate from '@client/v2-events/features/events/actions/print-certificate'
 import * as Register from '@client/v2-events/features/events/actions/register'
 import * as Validate from '@client/v2-events/features/events/actions/validate'
-import AdvancedSearch from '@client/v2-events/features/events/AdvancedSearch/AdvancedSearch'
+import {
+  AdvancedSearch,
+  SearchResult
+} from '@client/v2-events/features/events/AdvancedSearch'
 import { EventSelectionIndex } from '@client/v2-events/features/events/EventSelection'
 import { EventOverviewIndex } from '@client/v2-events/features/workqueues/EventOverview/EventOverview'
 import { router as workqueueRouter } from '@client/v2-events/features/workqueues/router'
 import { EventOverviewLayout, WorkqueueLayout } from '@client/v2-events/layouts'
 import { TRPCErrorBoundary } from '@client/v2-events/routes/TRPCErrorBoundary'
 import { TRPCProvider } from '@client/v2-events/trpc'
-import { SearchResultIndex } from '@client/v2-events/features/events/AdvancedSearch/SearchResultIndex'
-import { Action } from '@client/v2-events/features/events/components/Action'
+import { DeclarationAction } from '@client/v2-events/features/events/components/Action/DeclarationAction'
 import { NavigationHistoryProvider } from '@client/v2-events/components/NavigationStack'
-import { ReadOnlyView } from '@client/v2-events/features/events/ReadOnlyView'
+import { ReadonlyViewIndex } from '@client/v2-events/features/events/ReadOnlyView'
+import { AnnotationAction } from '@client/v2-events/features/events/components/Action/AnnotationAction'
 import { ROUTES } from './routes'
 
 /**
@@ -55,7 +58,7 @@ export const routesConfig = {
     workqueueRouter,
     {
       path: ROUTES.V2.EVENTS.VIEW.path,
-      element: <ReadOnlyView />
+      element: <ReadonlyViewIndex />
     },
     {
       path: ROUTES.V2.EVENTS.OVERVIEW.path,
@@ -71,14 +74,14 @@ export const routesConfig = {
     },
     {
       path: ROUTES.V2.EVENTS.DELETE.path,
-      element: <DeleteEvent />
+      element: <DeleteEventIndex />
     },
     {
       path: ROUTES.V2.EVENTS.DECLARE.path,
       element: (
-        <Action type={ActionType.DECLARE}>
+        <DeclarationAction actionType={ActionType.DECLARE}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -98,9 +101,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.VALIDATE.path,
       element: (
-        <Action type={ActionType.VALIDATE}>
+        <DeclarationAction actionType={ActionType.VALIDATE}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -121,9 +124,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.REGISTER.path,
       element: (
-        <Action type={ActionType.REGISTER}>
+        <DeclarationAction actionType={ActionType.REGISTER}>
           <Outlet />
-        </Action>
+        </DeclarationAction>
       ),
       children: [
         {
@@ -143,9 +146,9 @@ export const routesConfig = {
     {
       path: ROUTES.V2.EVENTS.PRINT_CERTIFICATE.path,
       element: (
-        <Action type={ActionType.PRINT_CERTIFICATE}>
+        <AnnotationAction actionType={ActionType.PRINT_CERTIFICATE}>
           <Outlet />
-        </Action>
+        </AnnotationAction>
       ),
       children: [
         {
@@ -170,7 +173,7 @@ export const routesConfig = {
       path: ROUTES.V2.SEARCH_RESULT.path,
       element: (
         <WorkqueueLayout>
-          <SearchResultIndex />
+          <SearchResult />
         </WorkqueueLayout>
       )
     }

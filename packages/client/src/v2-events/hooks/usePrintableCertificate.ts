@@ -15,12 +15,10 @@ import {
   EventState,
   getCurrentEventState,
   isMinioUrl,
-  User
-} from '@opencrvs/commons/client'
-import {
+  User,
   CertificateTemplateConfig,
   LanguageConfig
-} from '@opencrvs/commons/events'
+} from '@opencrvs/commons/client'
 
 import {
   addFontsToSvg,
@@ -56,14 +54,19 @@ async function replaceMinioUrlWithBase64(template: Record<string, any>) {
   return recursiveTransform(template)
 }
 
-export const usePrintableCertificate = (
-  event: EventDocument,
-  form: EventState,
-  locations: Location[],
-  users: User[],
-  certificateConfig?: CertificateTemplateConfig,
+export const usePrintableCertificate = ({
+  event,
+  locations,
+  users,
+  certificateConfig,
+  language
+}: {
+  event: EventDocument
+  locations: Location[]
+  users: User[]
+  certificateConfig?: CertificateTemplateConfig
   language?: LanguageConfig
-) => {
+}) => {
   const currentState = getCurrentEventState(event)
   const modifiedState = {
     ...currentState,
@@ -82,20 +85,24 @@ export const usePrintableCertificate = (
   const svgWithoutFonts = compileSvg({
     templateString: certificateConfig.svg,
     $state: modifiedState,
-    $data: form,
+    $declaration: currentState.declaration,
     locations,
     users,
     language
   })
+
   const svgCode = addFontsToSvg(svgWithoutFonts, certificateFonts)
 
   const handleCertify = async (updatedEvent: EventDocument) => {
     const currentEventState = getCurrentEventState(updatedEvent)
-    const base64ReplacedTemplate = await replaceMinioUrlWithBase64(form)
+    const base64ReplacedTemplate = await replaceMinioUrlWithBase64(
+      currentEventState.declaration
+    )
+
     const compiledSvg = compileSvg({
       templateString: certificateConfig.svg,
       $state: currentEventState,
-      $data: {
+      $declaration: {
         ...base64ReplacedTemplate,
         preview: false
       },
@@ -103,6 +110,7 @@ export const usePrintableCertificate = (
       users,
       language
     })
+
     const compiledSvgWithFonts = addFontsToSvg(compiledSvg, certificateFonts)
     const pdfTemplate = svgToPdfTemplate(compiledSvgWithFonts, certificateFonts)
     printAndDownloadPdf(pdfTemplate, event.id)

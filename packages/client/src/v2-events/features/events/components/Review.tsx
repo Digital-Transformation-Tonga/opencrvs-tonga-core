@@ -29,17 +29,16 @@ import {
 } from '@opencrvs/components'
 import {
   EventState,
-  EventConfig,
+  FieldConfig,
   FieldType,
   FormConfig,
   getFieldValidationErrors,
-  isFieldVisible,
+  isFieldDisplayedOnReview,
   isPageVisible,
   SCOPES
 } from '@opencrvs/commons/client'
 import { FormFieldGenerator } from '@client/v2-events/components/forms/FormFieldGenerator'
 import { getCountryLogoFile } from '@client/offline/selectors'
-// eslint-disable-next-line no-restricted-imports
 import { getScope } from '@client/profile/profileSelectors'
 import { Output } from './Output'
 import { DocumentViewer } from './DocumentViewer'
@@ -297,7 +296,7 @@ function FormReview({
       <ReviewContainter>
         {visiblePages.map((page) => {
           const fields = page.fields
-            .filter((field) => isFieldVisible(field, form))
+            .filter((field) => isFieldDisplayedOnReview(field, form))
             .map((field) => {
               const value = form[field.id]
               const previousValue = previousForm[field.id]
@@ -342,6 +341,16 @@ function FormReview({
             return <></>
           }
 
+          // Only display fields that have a non-undefined/null value or have an validation error
+          const displayedFields = fields.filter(
+            ({ valueDisplay, errorDisplay }) => {
+              // Explicitly check for undefined and null, so that e.g. number 0 and empty string outputs are shown
+              const hasValue =
+                valueDisplay !== undefined && valueDisplay !== null
+              return hasValue || Boolean(errorDisplay)
+            }
+          )
+
           return (
             <DeclarationDataContainer
               key={'Section_' + page.title.defaultMessage}
@@ -366,12 +375,8 @@ function FormReview({
                 name={'Accordion_' + page.id}
               >
                 <ListReview id={'Section_' + page.id}>
-                  {fields
-                    .filter(
-                      ({ valueDisplay, errorDisplay }) =>
-                        valueDisplay || errorDisplay
-                    )
-                    .map(({ id, label, errorDisplay, valueDisplay }) => (
+                  {displayedFields.map(
+                    ({ id, label, errorDisplay, valueDisplay }) => (
                       <ListReview.Row
                         key={id}
                         actions={
@@ -395,7 +400,8 @@ function FormReview({
                         label={intl.formatMessage(label)}
                         value={errorDisplay || valueDisplay}
                       />
-                    ))}
+                    )
+                  )}
                 </ListReview>
               </Accordion>
             </DeclarationDataContainer>
@@ -407,25 +413,26 @@ function FormReview({
 }
 
 /**
- * Review component, used to display the "read" version of the form with metadata input fields for the user (signatures etc.)
- * User can review the data and take actions like declare, reject or edit the data.
+ * Review component, used to display the "read" version of the declaration with annotation input fields for the user (signatures etc.)
+ * User can review the declaration and take actions like declare, reject or edit.
  */
 function ReviewComponent({
   formConfig,
   previousFormValues,
   form,
-  metadata,
+  annotation,
   onEdit,
   children,
   title,
-  onMetadataChange,
-  readonlyMode
+  onAnnotationChange,
+  readonlyMode,
+  reviewFields
 }: {
   children: React.ReactNode
-  eventConfig: EventConfig
   formConfig: FormConfig
   form: EventState
-  metadata?: EventState
+  annotation?: EventState
+  reviewFields?: FieldConfig[]
   previousFormValues?: EventState
   onEdit: ({
     pageId,
@@ -437,7 +444,7 @@ function ReviewComponent({
     confirmation?: boolean
   }) => void
   title: string
-  onMetadataChange?: (values: EventState) => void
+  onAnnotationChange?: (values: EventState) => void
   readonlyMode?: boolean
 }) {
   const scopes = useSelector(getScope)
@@ -454,7 +461,7 @@ function ReviewComponent({
     .map(({ id }) => id)
 
   const hasReviewFieldsToUpdate =
-    metadata && onMetadataChange && formConfig.review.fields.length > 0
+    annotation && onAnnotationChange && reviewFields && reviewFields.length > 0
 
   return (
     <Row>
@@ -476,13 +483,13 @@ function ReviewComponent({
             <FormData>
               <ReviewContainter>
                 <FormFieldGenerator
-                  fields={formConfig.review.fields}
-                  formData={metadata}
+                  fields={reviewFields}
+                  formData={annotation}
                   id={'review'}
-                  initialValues={metadata}
+                  initialValues={annotation}
                   readonlyMode={readonlyMode}
                   setAllFieldsDirty={false}
-                  onChange={onMetadataChange}
+                  onChange={onAnnotationChange}
                 />
               </ReviewContainter>
             </FormData>
@@ -566,14 +573,14 @@ const ActionContainer = styled.div`
 `
 
 function ReviewActionComponent({
+  incomplete,
   onConfirm,
   onReject,
   messages,
   primaryButtonType,
-  canSendIncomplete,
-  isPrimaryActionDisabled
+  canSendIncomplete
 }: {
-  isPrimaryActionDisabled: boolean
+  incomplete: boolean
   onConfirm: () => void
   onReject?: () => void
   messages: {
@@ -583,12 +590,11 @@ function ReviewActionComponent({
     onReject?: MessageDescriptor
   }
   primaryButtonType?: 'positive' | 'primary'
-  action?: string
   canSendIncomplete?: boolean
 }) {
   const intl = useIntl()
 
-  const background = isPrimaryActionDisabled ? 'error' : 'success'
+  const background = incomplete ? 'error' : 'success'
 
   return (
     <Container>
@@ -598,7 +604,7 @@ function ReviewActionComponent({
           <Description>{intl.formatMessage(messages.description)}</Description>
           <ActionContainer>
             <Button
-              disabled={isPrimaryActionDisabled && !canSendIncomplete}
+              disabled={!!incomplete && !canSendIncomplete}
               id="validateDeclarationBtn"
               size="large"
               type={primaryButtonType ?? 'positive'}

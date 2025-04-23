@@ -8,19 +8,26 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-import { merge } from 'lodash'
+import { merge, omitBy, isString } from 'lodash'
 import { tennisClubMembershipEvent } from '../fixtures'
 import { getUUID } from '../uuid'
-import { ActionBase, ActionDocument } from './ActionDocument'
+import {
+  ActionBase,
+  ActionDocument,
+  ActionUpdate,
+  ActionStatus
+} from './ActionDocument'
 import {
   ArchiveActionInput,
+  AssignActionInput,
   DeclareActionInput,
   RegisterActionInput,
   RejectDeclarationActionInput,
   RequestCorrectionActionInput,
+  UnassignActionInput,
   ValidateActionInput
 } from './ActionInput'
-import { ActionType } from './ActionType'
+import { ActionType, DeclarationUpdateActions } from './ActionType'
 import { Draft } from './Draft'
 import { EventConfig } from './EventConfig'
 import { EventDocument } from './EventDocument'
@@ -28,53 +35,85 @@ import { EventIndex } from './EventIndex'
 import { EventInput } from './EventInput'
 import { mapFieldTypeToMockValue } from './FieldTypeMapping'
 import {
-  findActiveActionFormFields,
-  getActiveActionFormPages,
+  findRecordActionPages,
+  getActionAnnotationFields,
+  getDeclarationFields,
   isPageVisible,
   isVerificationPage,
   stripHiddenFields
 } from './utils'
 import { FieldValue } from './FieldValue'
 import { TranslationConfig } from './TranslationConfig'
+import { FieldConfig } from './FieldConfig'
+import { ActionConfig } from './ActionConfig'
 
-export function generateActionInput(
-  configuration: EventConfig,
-  action: ActionType
-) {
-  const fields = findActiveActionFormFields(configuration, action) ?? []
-
-  const data = fields.reduce(
+function fieldConfigsToActionAnnotation(fields: FieldConfig[]) {
+  return fields.reduce(
     (acc, field, i) => ({
       ...acc,
       [field.id]: mapFieldTypeToMockValue(field, i)
     }),
     {}
   )
+}
 
-  // Strip away hidden or disabled fields from mock action data
-  // If this is not done, the mock data might contain hidden or disabled fields, which will cause validation errors
-  return stripHiddenFields(fields, data)
+export function generateActionInput(
+  configuration: EventConfig,
+  action: ActionType
+) {
+  const parsed = DeclarationUpdateActions.safeParse(action)
+  if (parsed.success) {
+    const fields = getDeclarationFields(configuration)
+
+    const annotation = fieldConfigsToActionAnnotation(fields)
+
+    // Strip away hidden or disabled fields from mock action annotation
+    // If this is not done, the mock data might contain hidden or disabled fields, which will cause validation errors
+    return stripHiddenFields(fields, annotation)
+  }
+
+  // eslint-disable-next-line no-console
+  console.warn(`${action} is not a declaration action. Setting data as {}.`)
+
+  return {}
 }
 
 export function generateActionMetadataInput(
   configuration: EventConfig,
   action: ActionType
 ) {
-  const visibleVerificationPageIds = getActiveActionFormPages(
+  const actionConfig: ActionConfig | undefined = configuration.actions.find(
+    (ac) => ac.type === action
+  )
+
+  const annotationFields = actionConfig
+    ? getActionAnnotationFields(actionConfig)
+    : []
+
+  const annotation = fieldConfigsToActionAnnotation(annotationFields)
+
+  const visibleVerificationPageIds = findRecordActionPages(
     configuration,
     action
   )
     .filter((page) => isVerificationPage(page))
-    .filter((page) => isPageVisible(page, {}))
+    .filter((page) => isPageVisible(page, annotation))
     .map((page) => page.id)
 
-  return visibleVerificationPageIds.reduce(
+  const visiblePageVerificationMap = visibleVerificationPageIds.reduce(
     (acc, pageId) => ({
       ...acc,
       [pageId]: true
     }),
     {}
   )
+
+  const fieldBasedPayload = stripHiddenFields(annotationFields, annotation)
+
+  return {
+    ...fieldBasedPayload,
+    ...visiblePageVerificationMap
+  }
 }
 
 export const eventPayloadGenerator = {
@@ -87,7 +126,10 @@ export const eventPayloadGenerator = {
     type: input.type ?? 'TENNIS_CLUB_MEMBERSHIP',
     id
   }),
-  draft: (eventId: string, input: Partial<Draft> = {}) =>
+  draft: (
+    { eventId, actionType }: { eventId: string; actionType: ActionType },
+    input: Partial<Draft> = {}
+  ): Draft =>
     merge(
       {
         id: getUUID(),
@@ -95,14 +137,15 @@ export const eventPayloadGenerator = {
         createdAt: new Date().toISOString(),
         transactionId: getUUID(),
         action: {
-          type: ActionType.REQUEST_CORRECTION,
-          data: {
+          type: actionType,
+          status: ActionStatus.Accepted,
+          declaration: {
             'applicant.firstname': 'Max',
             'applicant.surname': 'McLaren',
             'applicant.dob': '2020-01-02',
             'recommender.none': true
           },
-          metadata: {
+          annotation: {
             'correction.requester.relationship': 'ANOTHER_AGENT',
             'correction.request.reason': "Child's name was incorrect"
           },
@@ -110,88 +153,169 @@ export const eventPayloadGenerator = {
           createdBy: '@todo',
           createdAtLocation: '@todo'
         }
-      },
+      } satisfies Draft,
       input
     ),
   actions: {
     declare: (
       eventId: string,
-      input: Partial<Pick<DeclareActionInput, 'transactionId' | 'data'>> = {}
+      input: Partial<
+        Pick<DeclareActionInput, 'transactionId' | 'declaration' | 'annotation'>
+      > = {}
     ) => ({
       type: ActionType.DECLARE,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
+      declaration:
+        input.declaration ??
         generateActionInput(tennisClubMembershipEvent, ActionType.DECLARE),
+      annotation:
+        input.annotation ??
+        generateActionMetadataInput(
+          tennisClubMembershipEvent,
+          ActionType.DECLARE
+        ),
       eventId
     }),
+    /**
+     * Notify allows sending incomplete data. Think it as 'partial declare' for now.
+     */
+    notify: (
+      eventId: string,
+      input: {
+        transactionId?: string
+        declaration?: Partial<ActionUpdate>
+      } = {}
+    ) => {
+      let declaration = input.declaration
+      if (!declaration) {
+        // Remove some fields to simulate incomplete data
+        const partialDeclaration = omitBy(
+          generateActionInput(tennisClubMembershipEvent, ActionType.DECLARE),
+          isString
+        )
+
+        // Remove some fields to simulate incomplete data
+        declaration = partialDeclaration
+      }
+
+      return {
+        type: ActionType.NOTIFY,
+        transactionId: input.transactionId ?? getUUID(),
+        declaration,
+        eventId
+      }
+    },
     validate: (
       eventId: string,
-      input: Partial<Pick<ValidateActionInput, 'transactionId' | 'data'>> = {}
+      input: Partial<
+        Pick<
+          ValidateActionInput,
+          'transactionId' | 'declaration' | 'annotation'
+        >
+      > = {}
     ) => ({
       type: ActionType.VALIDATE,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
+      declaration:
+        input.declaration ??
         generateActionInput(tennisClubMembershipEvent, ActionType.VALIDATE),
+      annotation:
+        input.annotation ??
+        generateActionMetadataInput(
+          tennisClubMembershipEvent,
+          ActionType.VALIDATE
+        ),
       duplicates: [],
+      eventId
+    }),
+    assign: (
+      eventId: string,
+      input: Partial<
+        Pick<AssignActionInput, 'transactionId' | 'assignedTo'>
+      > = {}
+    ) => ({
+      type: ActionType.ASSIGN,
+      transactionId: input.transactionId ?? getUUID(),
+      declaration: {},
+      assignedTo: input.assignedTo ?? getUUID(),
+      eventId
+    }),
+    unassign: (
+      eventId: string,
+      input: Partial<Pick<UnassignActionInput, 'transactionId'>> = {}
+    ) => ({
+      type: ActionType.UNASSIGN,
+      transactionId: input.transactionId ?? getUUID(),
+      declaration: {},
+      assignedTo: null,
       eventId
     }),
     archive: (
       eventId: string,
-      input: Partial<Pick<ArchiveActionInput, 'transactionId' | 'data'>> = {},
+      input: Partial<
+        Pick<ArchiveActionInput, 'transactionId' | 'declaration'>
+      > = {},
       isDuplicate?: boolean
     ) => ({
       type: ActionType.ARCHIVE,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
-        generateActionInput(tennisClubMembershipEvent, ActionType.ARCHIVE),
-      metadata: { isDuplicate: isDuplicate ?? false },
+      declaration: {},
+      // @TODO: Check whether generator is needed?
+      annotation: { isDuplicate: isDuplicate ?? false },
       duplicates: [],
       eventId
     }),
     reject: (
       eventId: string,
       input: Partial<
-        Pick<RejectDeclarationActionInput, 'transactionId' | 'data'>
+        Pick<RejectDeclarationActionInput, 'transactionId' | 'annotation'>
       > = {}
     ) => ({
       type: ActionType.REJECT,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
-        generateActionInput(tennisClubMembershipEvent, ActionType.REJECT),
+      declaration: {},
+      annotation:
+        input.annotation ??
+        generateActionMetadataInput(
+          tennisClubMembershipEvent,
+          ActionType.REJECT
+        ),
       duplicates: [],
       eventId
     }),
     register: (
       eventId: string,
-      input: Partial<Pick<RegisterActionInput, 'transactionId' | 'data'>> = {}
+      input: Partial<
+        Pick<
+          RegisterActionInput,
+          'transactionId' | 'declaration' | 'annotation'
+        >
+      > = {}
     ) => ({
       type: ActionType.REGISTER,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
+      declaration:
+        input.declaration ??
         generateActionInput(tennisClubMembershipEvent, ActionType.REGISTER),
+      annotation:
+        input.annotation ??
+        generateActionMetadataInput(
+          tennisClubMembershipEvent,
+          ActionType.REGISTER
+        ),
       eventId
     }),
     printCertificate: (
       eventId: string,
       input: Partial<
-        Pick<RegisterActionInput, 'transactionId' | 'data' | 'metadata'>
+        Pick<RegisterActionInput, 'transactionId' | 'annotation'>
       > = {}
     ) => ({
       type: ActionType.PRINT_CERTIFICATE,
       transactionId: input.transactionId ?? getUUID(),
-      data:
-        input.data ??
-        generateActionInput(
-          tennisClubMembershipEvent,
-          ActionType.PRINT_CERTIFICATE
-        ),
-      metadata:
-        input.metadata ??
+      declaration: {},
+      annotation:
+        input.annotation ??
         generateActionMetadataInput(
           tennisClubMembershipEvent,
           ActionType.PRINT_CERTIFICATE
@@ -202,32 +326,41 @@ export const eventPayloadGenerator = {
       request: (
         eventId: string,
         input: Partial<
-          Pick<RequestCorrectionActionInput, 'transactionId' | 'data'>
+          Pick<
+            RequestCorrectionActionInput,
+            'transactionId' | 'declaration' | 'annotation'
+          >
         > = {}
       ) => ({
         type: ActionType.REQUEST_CORRECTION,
         transactionId: input.transactionId ?? getUUID(),
-        data:
-          input.data ??
+        declaration:
+          input.declaration ??
           generateActionInput(
             tennisClubMembershipEvent,
             ActionType.REQUEST_CORRECTION
           ),
-        metadata: {},
+        annotation:
+          input.annotation ??
+          generateActionMetadataInput(
+            tennisClubMembershipEvent,
+            ActionType.REQUEST_CORRECTION
+          ),
         eventId
       }),
       approve: (
         eventId: string,
         requestId: string,
         input: Partial<
-          Pick<RequestCorrectionActionInput, 'transactionId' | 'data'>
+          Pick<RequestCorrectionActionInput, 'transactionId' | 'annotation'>
         > = {}
       ) => ({
         type: ActionType.APPROVE_CORRECTION,
         transactionId: input.transactionId ?? getUUID(),
-        data:
-          input.data ??
-          generateActionInput(
+        declaration: {},
+        annotation:
+          input.annotation ??
+          generateActionMetadataInput(
             tennisClubMembershipEvent,
             ActionType.APPROVE_CORRECTION
           ),
@@ -238,14 +371,15 @@ export const eventPayloadGenerator = {
         eventId: string,
         requestId: string,
         input: Partial<
-          Pick<RequestCorrectionActionInput, 'transactionId' | 'data'>
+          Pick<RequestCorrectionActionInput, 'transactionId' | 'annotation'>
         > = {}
       ) => ({
         type: ActionType.REJECT_CORRECTION,
         transactionId: input.transactionId ?? getUUID(),
-        data:
-          input.data ??
-          generateActionInput(
+        declaration: {},
+        annotation:
+          input.annotation ??
+          generateActionMetadataInput(
             tennisClubMembershipEvent,
             ActionType.REJECT_CORRECTION
           ),
@@ -272,12 +406,17 @@ export function generateActionDocument({
     createdBy: getUUID(),
     id: getUUID(),
     createdAtLocation: 'TODO',
-    data: generateActionInput(configuration, action),
-    metadata: {},
-    ...defaults
+    declaration: generateActionInput(configuration, action),
+    annotation: {},
+    ...defaults,
+    status: ActionStatus.Accepted
   } satisfies ActionBase
 
   switch (action) {
+    case ActionType.READ:
+      return { ...actionBase, type: action }
+    case ActionType.MARKED_AS_DUPLICATE:
+      return { ...actionBase, type: action }
     case ActionType.DECLARE:
       return { ...actionBase, type: action }
     case ActionType.UNASSIGN:
@@ -302,15 +441,14 @@ export function generateActionDocument({
       return { ...actionBase, requestId: getUUID(), type: action }
     case ActionType.REJECT_CORRECTION:
       return { ...actionBase, requestId: getUUID(), type: action }
-    case ActionType.CUSTOM:
-      return { ...actionBase, type: action }
     case ActionType.REGISTER:
       return {
         ...actionBase,
-        type: action,
-        identifiers: { trackingId: getUUID(), registrationNumber: getUUID() }
+        type: action
       }
 
+    case ActionType.DELETE:
+    case ActionType.DETECT_DUPLICATE:
     default:
       throw new Error(`Unsupported action type: ${action}`)
   }
@@ -342,7 +480,7 @@ export function generateEventDocument({
 export function generateEventDraftDocument(
   eventId: string,
   actionType: ActionType = ActionType.DECLARE,
-  data: Record<string, FieldValue> = {}
+  declaration: Record<string, FieldValue> = {}
 ): Draft {
   const action = generateActionDocument({
     configuration: tennisClubMembershipEvent,
@@ -353,9 +491,9 @@ export function generateEventDraftDocument(
     transactionId: getUUID(),
     action: {
       ...action,
-      data: {
-        ...action.data,
-        ...data
+      declaration: {
+        ...action.declaration,
+        ...declaration
       }
     },
     createdAt: new Date().toISOString(),
@@ -375,7 +513,7 @@ export const eventQueryDataGenerator = (
   modifiedAt: overrides.modifiedAt ?? new Date().toISOString(),
   assignedTo: overrides.assignedTo ?? null,
   updatedBy: overrides.updatedBy ?? getUUID(),
-  data: overrides.data ?? {
+  declaration: overrides.declaration ?? {
     'recommender.none': true,
     'applicant.firstname': 'Danny',
     'applicant.surname': 'Doe',

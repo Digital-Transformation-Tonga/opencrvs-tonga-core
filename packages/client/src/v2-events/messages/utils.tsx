@@ -18,8 +18,11 @@ import {
   parse
 } from '@formatjs/icu-messageformat-parser'
 import { EventState } from '@opencrvs/commons/client'
+
 const INTERNAL_SEPARATOR = '___'
 
+// The __EMPTY__ is our common token for missing values, that can be used when configuring a message.
+const EMPTY_TOKEN = '__EMPTY__'
 /**
  * Replaces dots with triple underscores in the object keys.
  * This is needed to support dot notation in the message variables.
@@ -41,7 +44,8 @@ function convertDotToTripleUnderscore(obj: EventState, parentKey = '') {
           )
         )
       )
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      /* @TODO: Check if the typing is correct or is there a case where null could come in */
+      /*  eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */
     } else if (typeof value === 'object' && value !== null) {
       Object.assign(result, convertDotToTripleUnderscore(value, newKey))
     } else {
@@ -63,9 +67,6 @@ function convertDotInCurlyBraces(str: string): string {
     return `{${transformedContent}}`
   })
 }
-
-// The __EMPTY__ is our common token for missing values, that can be used when configuring a message.
-const EMPTY_TOKEN = '__EMPTY__'
 
 function getVariablesFromElement(element: MessageFormatElement): string[] {
   if (isArgumentElement(element)) {
@@ -94,17 +95,20 @@ function flattenNestedObject(
   obj: Record<string, string>,
   prefix = ''
 ): Record<string, string> {
-  return Object.entries(obj).reduce((acc, [key, value]) => {
-    const newKey = prefix ? `${prefix}.${key}` : key
+  return Object.entries(obj).reduce(
+    (acc, [key, value]) => {
+      const newKey = prefix ? `${prefix}.${key}` : key
 
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      Object.assign(acc, flattenNestedObject(value, newKey))
-    } else {
-      acc[newKey] = value
-    }
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        Object.assign(acc, flattenNestedObject(value, newKey))
+      } else {
+        acc[newKey] = value
+      }
 
-    return acc
-  }, {} as Record<string, string>)
+      return acc
+    },
+    {} as Record<string, string>
+  )
 }
 
 /**
