@@ -42,13 +42,13 @@ export const DataDisplay: StoryObj<typeof FormFieldGenerator> = {
   render: function Component() {
     return (
       <StyledFormFieldGenerator
-        eventConfig={tennisClubMembershipEvent}
-        eventDeclarationData={{
+        declaration={{
           'applicant.firstname': 'Tanya',
           'applicant.id': '2370934578',
           'applicant.surname': 'McQuaid',
           'applicant.dob': '1975-01-02'
         }}
+        eventConfig={tennisClubMembershipEvent}
         fields={[
           {
             id: 'storybook.data',
@@ -75,6 +75,9 @@ export const DataDisplay: StoryObj<typeof FormFieldGenerator> = {
                   fieldId: 'applicant.dob'
                 },
                 {
+                  fieldId: 'applicant'
+                },
+                {
                   label: {
                     defaultMessage: 'ID',
                     description: 'This is the label for the field',
@@ -86,7 +89,112 @@ export const DataDisplay: StoryObj<typeof FormFieldGenerator> = {
             }
           }
         ]}
-        formData={{}}
+        form={{}}
+        id="my-form"
+        setAllFieldsDirty={false}
+        onChange={noop}
+      />
+    )
+  }
+}
+
+export const DataDisplayWithConditionallyHiddenFields: StoryObj<
+  typeof FormFieldGenerator
+> = {
+  parameters: {
+    layout: 'centered'
+  },
+  render: function Component() {
+    return (
+      <StyledFormFieldGenerator
+        declaration={{
+          'recommender.none': true,
+          'recommender.firstname': 'John',
+          'applicant.firstname': 'Rasheed'
+        }}
+        eventConfig={tennisClubMembershipEvent}
+        fields={[
+          {
+            id: 'storybook.data',
+            type: FieldType.DATA,
+            label: {
+              id: 'storybook.data.label',
+              defaultMessage: 'Applicant details',
+              description: ''
+            },
+            configuration: {
+              subtitle: {
+                id: 'storybook.data.subtitle',
+                defaultMessage: 'Some subtitle',
+                description: ''
+              },
+              data: [
+                {
+                  fieldId: 'applicant.firstname'
+                },
+                {
+                  fieldId: 'recommender.none'
+                },
+                // recommender.firstname is not rendered, because recommender.none is true
+                {
+                  fieldId: 'recommender.firstname'
+                }
+              ]
+            }
+          }
+        ]}
+        form={{}}
+        id="my-form"
+        setAllFieldsDirty={false}
+        onChange={noop}
+      />
+    )
+  }
+}
+
+export const DataDisplayWithConditionallyShownFields: StoryObj<
+  typeof FormFieldGenerator
+> = {
+  parameters: {
+    layout: 'centered'
+  },
+  render: function Component() {
+    return (
+      <StyledFormFieldGenerator
+        declaration={{
+          'recommender.none': false,
+          'recommender.firstname': 'John',
+          'applicant.firstname': 'Rasheed'
+        }}
+        eventConfig={tennisClubMembershipEvent}
+        fields={[
+          {
+            id: 'storybook.data',
+            type: FieldType.DATA,
+            label: {
+              id: 'storybook.data.label',
+              defaultMessage: 'Applicant details',
+              description: ''
+            },
+            configuration: {
+              subtitle: {
+                id: 'storybook.data.subtitle',
+                defaultMessage: 'Some subtitle',
+                description: ''
+              },
+              data: [
+                {
+                  fieldId: 'applicant.firstname'
+                },
+                // recommender.firstname is rendered, because recommender.none is false
+                {
+                  fieldId: 'recommender.firstname'
+                }
+              ]
+            }
+          }
+        ]}
+        form={{}}
         id="my-form"
         setAllFieldsDirty={false}
         onChange={noop}

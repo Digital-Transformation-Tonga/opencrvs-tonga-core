@@ -28,7 +28,9 @@ test('actions can be added to created events', async () => {
 
   expect(event.actions).toEqual([
     expect.objectContaining({ type: ActionType.CREATE }),
-    expect.objectContaining({ type: ActionType.DECLARE })
+    expect.objectContaining({ type: ActionType.ASSIGN }),
+    expect.objectContaining({ type: ActionType.DECLARE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
   ])
 })
 
@@ -53,9 +55,13 @@ test('Action data can be retrieved', async () => {
 
   expect(updatedEvent.actions).toEqual([
     expect.objectContaining({ type: ActionType.CREATE }),
+    expect.objectContaining({ type: ActionType.ASSIGN }),
     expect.objectContaining({ type: ActionType.DECLARE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.VALIDATE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.REGISTER }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.READ })
   ])
 })
@@ -209,4 +215,32 @@ test('Action other than READ deletes draft', async () => {
   const draftEventsAfterRead = await client.event.draft.list()
 
   expect(draftEventsAfterRead.length).toBe(0)
+})
+
+test('partial declaration update accounts for conditional field values not in payload', async () => {
+  const { user, generator } = await setupTestCase()
+  const client = createTestClient(user)
+
+  const originalEvent = await client.event.create(generator.event.create())
+
+  await client.event.actions.declare.request(
+    generator.event.actions.declare(originalEvent.id)
+  )
+
+  await client.event.actions.validate.request({
+    type: ActionType.VALIDATE,
+    duplicates: [],
+    declaration: {
+      'applicant.dobUnknown': true,
+      'applicant.age': 25
+    },
+    eventId: originalEvent.id,
+    transactionId: '123-123-124'
+  })
+
+  const event = await client.event.get(originalEvent.id)
+
+  const eventState = getCurrentEventState(event)
+
+  expect(eventState.declaration).toMatchSnapshot()
 })
