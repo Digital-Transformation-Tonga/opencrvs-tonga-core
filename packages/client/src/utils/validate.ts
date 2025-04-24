@@ -912,3 +912,36 @@ export const validateAgeGap: Validation = (value, drafts) => {
 
   return undefined
 }
+
+const checkAgeGapInYears = (drafts: IFormData, parent: 'mother' | 'father') => {
+  const AGE_GAP = 12 // 12 years
+  const deceasedBirthDate = drafts?.deceased?.ageOfIndividualInYears
+
+  let parentBirthDate = drafts?.mother?.ageOfIndividualInYears
+  if (parent === 'father') {
+    parentBirthDate = drafts?.father?.ageOfIndividualInYears
+  }
+
+  if (deceasedBirthDate) {
+    if (parentBirthDate && parentBirthDate - deceasedBirthDate < AGE_GAP) {
+      return {
+        message: messages.isValidAgeGap
+      }
+    }
+  }
+  return undefined
+}
+
+export const isValidDeaceasedMotherAgeGap: Validation = (
+  value: IFormFieldValue,
+  drafts: IFormData
+) => {
+  return checkAgeGapInYears(drafts, 'mother')
+}
+
+export const isValidDeaceasedFatherAgeGap = (
+  value: IFormFieldValue,
+  drafts: IFormData
+) => {
+  return checkAgeGapInYears(drafts, 'father')
+}
