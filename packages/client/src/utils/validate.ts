@@ -307,17 +307,17 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-      isDateNotInFuture(cast) &&
-      isAValidDateFormat(cast) &&
-      isDateNotAfterBirthEvent(cast, drafts as IFormData)
-    ? isDateNotAfterDeath(cast, drafts as IFormData)
-      ? undefined
+        isDateNotInFuture(cast) &&
+        isAValidDateFormat(cast) &&
+        isDateNotAfterBirthEvent(cast, drafts as IFormData)
+      ? isDateNotAfterDeath(cast, drafts as IFormData)
+        ? undefined
+        : {
+            message: messages.isDateNotAfterDeath
+          }
       : {
-          message: messages.isDateNotAfterDeath
+          message: messages.isValidBirthDate
         }
-    : {
-        message: messages.isValidBirthDate
-      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
@@ -326,11 +326,11 @@ export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-      isAValidDateFormat(childBirthDate) &&
-      isDateNotInFuture(childBirthDate) &&
-      isDateNotPastLimit(childBirthDate, pastDateLimit)
-    ? undefined
-    : { message: messages.isValidBirthDate }
+        isAValidDateFormat(childBirthDate) &&
+        isDateNotInFuture(childBirthDate) &&
+        isDateNotPastLimit(childBirthDate, pastDateLimit)
+      ? undefined
+      : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -766,8 +766,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-    ? undefined
-    : { message: messages.greaterThanZero }
+      ? undefined
+      : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
@@ -906,6 +906,40 @@ export const validateAgeGap: Validation = (value, drafts) => {
         return {
           message: validationMessage
         }
+      }
+    }
+  }
+
+  return undefined
+}
+
+export const validateSpouseAndForeignSelection: Validation = (
+  value,
+  drafts
+) => {
+  const maritalStatus = drafts?.deceased?.maritalStatus
+  const foreignDeath = drafts?.deceased?.foreignDeath
+
+  if (value === 'SPOUSE' && maritalStatus !== 'MARRIED') {
+    return {
+      message: {
+        defaultMessage:
+          'Cannot select "Spouse" unless the deceased was married.',
+        description:
+          'Validation error when trying to select SPOUSE but deceased is not marked as married.',
+        id: 'validateSpouseSelection'
+      }
+    }
+  }
+
+  if (value === 'FOREIGN' && foreignDeath !== 'true') {
+    return {
+      message: {
+        defaultMessage:
+          'Cannot select "Foreign Informant" unless the death occurred abroad.',
+        description:
+          'Validation error when trying to select FOREIGN location but foreignDeath is false.',
+        id: 'validateForeignSelection'
       }
     }
   }
