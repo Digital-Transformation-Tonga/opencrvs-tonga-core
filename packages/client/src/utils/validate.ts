@@ -801,3 +801,114 @@ export const validateMaxFileSize = (value: IFormFieldValue) => {
 
   return undefined
 }
+
+const dateFormatRegex = /^\d{4}-(\d{1,2})-(\d{1,2})$/
+
+const returnAbsoluteMonthDifference = (
+  personBirthDate: any,
+  parentBirthDate: any
+) => {
+  if (
+    dateFormatRegex.test(personBirthDate) &&
+    dateFormatRegex.test(parentBirthDate)
+  ) {
+    const [personBirthyear, personBirthMonth] = personBirthDate
+      .split('-')
+      .map(Number)
+
+    const [parentBirthyear, parentBirthMonth] = parentBirthDate
+      .split('-')
+      .map(Number)
+
+    return Math.abs(
+      personBirthyear * 12 +
+        personBirthMonth -
+        (parentBirthyear * 12 + parentBirthMonth)
+    )
+  }
+}
+
+export const validateAgeGap: Validation = (value, drafts) => {
+  const AGE_GAP_BETWEEN_PERSON_AND_PARENT = 144 // 144 months --> 12 years
+
+  if (dateFormatRegex.test(value)) {
+    const childBirthDate = drafts.child?.childBirthDate
+    const motherBirthDate = drafts.mother?.motherBirthDate
+    const fatherBirthDate = drafts.father?.fatherBirthDate
+    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+
+    // Generic validation message is given, since same field is used for both birth and death
+    const validationMessage = {
+      defaultMessage: 'Invalid age gap between the person & the parent',
+      description:
+        'The error message appears when the age gap between the person & the parent is invalid',
+      id: 'validateAgeGap'
+    }
+
+    if (childBirthDate && motherBirthDate) {
+      const monthDifference = returnAbsoluteMonthDifference(
+        childBirthDate,
+        motherBirthDate
+      )
+
+      if (
+        monthDifference &&
+        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+      ) {
+        return {
+          message: validationMessage
+        }
+      }
+    }
+
+    if (childBirthDate && fatherBirthDate) {
+      const monthDifference = returnAbsoluteMonthDifference(
+        childBirthDate,
+        fatherBirthDate
+      )
+
+      if (
+        monthDifference &&
+        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+      ) {
+        return {
+          message: validationMessage
+        }
+      }
+    }
+
+    if (deceasedBirthDate && motherBirthDate) {
+      const monthDifference = returnAbsoluteMonthDifference(
+        deceasedBirthDate,
+        motherBirthDate
+      )
+
+      if (
+        monthDifference &&
+        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+      ) {
+        return {
+          message: validationMessage
+        }
+      }
+    }
+
+    if (deceasedBirthDate && fatherBirthDate) {
+      const monthDifference = returnAbsoluteMonthDifference(
+        deceasedBirthDate,
+        fatherBirthDate
+      )
+
+      if (
+        monthDifference &&
+        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+      ) {
+        return {
+          message: validationMessage
+        }
+      }
+    }
+  }
+
+  return undefined
+}

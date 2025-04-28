@@ -44,7 +44,7 @@ const messagesToDefine: IStepOneFormMessages = {
 
   stepOneLoginText: {
     id: 'login.stepOneText',
-    defaultMessage: 'Login to Kingdom of Tonga',
+    defaultMessage: 'Login to Kingdom of Tonga CRVS',
     description: 'The instruction that appears in step one of the login form'
   },
   submit: {

@@ -11,11 +11,10 @@
 
 import { TRPCError } from '@trpc/server'
 import {
-  ActionDocument,
   ActionType,
   AddressType,
   EventDocument,
-  generateActionInput,
+  generateActionDeclarationInput,
   getAcceptedActions,
   getUUID,
   SCOPES
@@ -124,9 +123,12 @@ test('a correction request can be added to a created event', async () => {
     generator.event.actions.correction.request(registeredEvent.id)
   )
 
-  expect(
-    withCorrectionRequest.actions[withCorrectionRequest.actions.length - 1].type
-  ).toBe(ActionType.REQUEST_CORRECTION)
+  expect(withCorrectionRequest.actions.slice(-2)).toEqual([
+    expect.objectContaining({
+      type: ActionType.REQUEST_CORRECTION
+    }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
+  ])
 })
 
 test(`${ActionType.REQUEST_CORRECTION} validation error message contains all the offending fields`, async () => {
@@ -138,6 +140,7 @@ test(`${ActionType.REQUEST_CORRECTION} validation error message contains all the
   const data = generator.event.actions.correction.request(event.id, {
     declaration: {
       'applicant.dob': '02-02',
+      'applicant.dobUnknown': false,
       'recommender.none': true
     }
   })
@@ -156,6 +159,7 @@ test(`${ActionType.REQUEST_CORRECTION} when mandatory field is invalid, conditio
   const data = generator.event.actions.correction.request(event.id, {
     declaration: {
       'applicant.dob': '02-1-2024',
+      'applicant.dobUnknown': false,
       'applicant.firstname': 'John',
       'applicant.surname': 'Doe',
       'recommender.none': true,
@@ -183,6 +187,7 @@ test(`${ActionType.REQUEST_CORRECTION} Skips required field validation when they
 
   const form = {
     'applicant.dob': '2024-02-01',
+    'applicant.dobUnknown': false,
     'applicant.firstname': 'John',
     'applicant.surname': 'Doe',
     'recommender.none': true,
@@ -217,6 +222,7 @@ test(`${ActionType.REQUEST_CORRECTION} Prevents adding birth date in future`, as
 
   const form = {
     'applicant.dob': '2040-02-01',
+    'applicant.dobUnknown': false,
     'applicant.firstname': 'John',
     'applicant.surname': 'Doe',
     'recommender.none': true,
@@ -256,9 +262,12 @@ test('a correction request can be added to a created event', async () => {
     generator.event.actions.correction.request(registeredEvent.id)
   )
 
-  expect(
-    withCorrectionRequest.actions[withCorrectionRequest.actions.length - 1].type
-  ).toBe(ActionType.REQUEST_CORRECTION)
+  expect(withCorrectionRequest.actions.slice(-2)).toEqual([
+    expect.objectContaining({
+      type: ActionType.REQUEST_CORRECTION
+    }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
+  ])
 })
 
 describe('when a correction request exists', () => {
@@ -282,8 +291,11 @@ describe('when a correction request exists', () => {
     withCorrectionRequest = await client.event.actions.correction.request(
       generator.event.actions.correction.request(registeredEvent.id, {
         declaration: {
-          ...generateActionInput(tennisClubMembershipEvent, ActionType.DECLARE),
-          'applicant.firstName': 'Johnny'
+          ...generateActionDeclarationInput(
+            tennisClubMembershipEvent,
+            ActionType.DECLARE
+          ),
+          'applicant.firstname': 'Johnny'
         }
       })
     )
@@ -302,14 +314,13 @@ describe('when a correction request exists', () => {
           requestId
         )
       )
-
-    const lastAction = withApprovedCorrectionRequest.actions[
-      withApprovedCorrectionRequest.actions.length - 1
-    ] as Extract<ActionDocument, { type: 'APPROVE_CORRECTION' }>
-
-    expect(lastAction.type).toBe(ActionType.APPROVE_CORRECTION)
-
-    expect(lastAction.requestId).toBe(requestId)
+    expect(withApprovedCorrectionRequest.actions.slice(-2)).toEqual([
+      expect.objectContaining({
+        type: ActionType.APPROVE_CORRECTION,
+        requestId
+      }),
+      expect.objectContaining({ type: ActionType.UNASSIGN })
+    ])
   })
 
   test('approving a request fails if request id is incorrect', async () => {

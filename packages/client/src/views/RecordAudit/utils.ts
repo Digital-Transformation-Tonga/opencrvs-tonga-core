@@ -63,6 +63,8 @@ export interface IDeclarationData {
   registrationNo?: string
   nid?: string
   assignment?: AssignmentData
+  childBirthPlace?: string
+  deceasedDeathPlace?: string
 }
 
 interface IInformantInfo {
@@ -356,7 +358,11 @@ export const getDraftDeclarationData = (
       registrationEmail:
         declaration.data?.informant?.registrationEmail?.toString() ||
         EMPTY_STRING
-    }
+    },
+    childBirthPlace:
+      declaration.data?.child?.childPlaceOfBirth?.toString() || EMPTY_STRING,
+    deceasedDeathPlace:
+      declaration.data?.deathEvent?.deathPlace?.toString() || EMPTY_STRING
   }
 }
 

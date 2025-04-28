@@ -39,6 +39,10 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
             line
           }
         }
+        questionnaire {
+          fieldId
+          value
+        }
         registration {
           trackingId
           registrationNumber
@@ -88,6 +92,10 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
             city
             country
           }
+        }
+        questionnaire {
+          fieldId
+          value
         }
         registration {
           trackingId

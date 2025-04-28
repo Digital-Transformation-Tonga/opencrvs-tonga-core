@@ -80,18 +80,16 @@ export const GetDeclarationInfo = ({
     finalStatus === 'Declared' || finalStatus === 'Submitted'
       ? intl.formatMessage(constantsMessages.inReviewStatus)
       : finalStatus === 'In progress'
-        ? intl.formatMessage(constantsMessages.incompleteStatus)
-        : finalStatus === 'Rejected'
-          ? intl.formatMessage(constantsMessages.requiresUpdatesStatus)
-          : finalStatus === 'Registered'
-            ? intl.formatMessage(constantsMessages.registeredStatus)
-            : finalStatus === 'Archived'
-              ? intl.formatMessage(
-                  dynamicConstantsMessages.archived_declaration
-                )
-              : finalStatus === 'Draft'
-                ? intl.formatMessage(dynamicConstantsMessages.draft)
-                : finalStatus
+      ? intl.formatMessage(constantsMessages.incompleteStatus)
+      : finalStatus === 'Rejected'
+      ? intl.formatMessage(constantsMessages.requiresUpdatesStatus)
+      : finalStatus === 'Registered'
+      ? intl.formatMessage(constantsMessages.registeredStatus)
+      : finalStatus === 'Archived'
+      ? intl.formatMessage(dynamicConstantsMessages.archived_declaration)
+      : finalStatus === 'Draft'
+      ? intl.formatMessage(dynamicConstantsMessages.draft)
+      : finalStatus
 
   let info: ILabel = {
     status: declaration?.status && displayStatus,
@@ -115,7 +113,7 @@ export const GetDeclarationInfo = ({
       ...info,
       type: intl.formatMessage(constantsMessages.birth),
       dateOfBirth: declaration?.dateOfBirth,
-      placeOfBirth: declaration?.placeOfBirth
+      placeOfBirth: declaration?.childBirthPlace
     }
   } else if (info.type === 'Death') {
     if (
@@ -132,7 +130,7 @@ export const GetDeclarationInfo = ({
       ...info,
       type: intl.formatMessage(constantsMessages.death),
       dateOfDeath: declaration?.dateOfDeath,
-      placeOfDeath: declaration?.placeOfDeath
+      placeOfDeath: declaration?.deceasedDeathPlace
     }
   } else if (info.type === 'Marriage') {
     if (
