@@ -828,87 +828,94 @@ const returnAbsoluteMonthDifference = (
   }
 }
 
-export const validateAgeGap: Validation = (value, drafts) => {
+const checkAgeGapInMonths = (
+  personBirthDate: any,
+  parentBirthDate: any,
+  person: 'child' | 'deceased',
+  parent: 'mother' | 'father'
+) => {
   const AGE_GAP_BETWEEN_PERSON_AND_PARENT = 144 // 144 months --> 12 years
 
-  if (dateFormatRegex.test(value)) {
-    const childBirthDate = drafts.child?.childBirthDate
-    const motherBirthDate = drafts.mother?.motherBirthDate
-    const fatherBirthDate = drafts.father?.fatherBirthDate
-    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+  if (personBirthDate && parentBirthDate) {
+    const monthDifference = returnAbsoluteMonthDifference(
+      personBirthDate,
+      parentBirthDate
+    )
 
-    // Generic validation message is given, since same field is used for both birth and death
-    const validationMessage = {
-      defaultMessage: 'Invalid age gap between the person & the parent',
-      description:
-        'The error message appears when the age gap between the person & the parent is invalid',
-      id: 'validateAgeGap'
-    }
-
-    if (childBirthDate && motherBirthDate) {
-      const monthDifference = returnAbsoluteMonthDifference(
-        childBirthDate,
-        motherBirthDate
-      )
-
-      if (
-        monthDifference &&
-        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
-      ) {
-        return {
-          message: validationMessage
-        }
-      }
-    }
-
-    if (childBirthDate && fatherBirthDate) {
-      const monthDifference = returnAbsoluteMonthDifference(
-        childBirthDate,
-        fatherBirthDate
-      )
-
-      if (
-        monthDifference &&
-        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
-      ) {
-        return {
-          message: validationMessage
-        }
-      }
-    }
-
-    if (deceasedBirthDate && motherBirthDate) {
-      const monthDifference = returnAbsoluteMonthDifference(
-        deceasedBirthDate,
-        motherBirthDate
-      )
-
-      if (
-        monthDifference &&
-        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
-      ) {
-        return {
-          message: validationMessage
-        }
-      }
-    }
-
-    if (deceasedBirthDate && fatherBirthDate) {
-      const monthDifference = returnAbsoluteMonthDifference(
-        deceasedBirthDate,
-        fatherBirthDate
-      )
-
-      if (
-        monthDifference &&
-        monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
-      ) {
-        return {
-          message: validationMessage
+    if (
+      monthDifference &&
+      monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+    ) {
+      return {
+        message: {
+          defaultMessage: `Invalid age gap between the ${person} & the ${parent}`,
+          description:
+            'The error message appears when the age gap between the person & the parent is invalid',
+          id: 'checkAgeGapInMonths'
         }
       }
     }
   }
 
+  return undefined
+}
+
+export const validateChildMotherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const childBirthDate = drafts.child?.childBirthDate
+    const motherBirthDate = drafts.mother?.motherBirthDate
+
+    return checkAgeGapInMonths(
+      childBirthDate,
+      motherBirthDate,
+      'child',
+      'mother'
+    )
+  }
+  return undefined
+}
+
+export const validateChildFatherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const childBirthDate = drafts.child?.childBirthDate
+    const fatherBirthDate = drafts.father?.fatherBirthDate
+
+    return checkAgeGapInMonths(
+      childBirthDate,
+      fatherBirthDate,
+      'child',
+      'father'
+    )
+  }
+  return undefined
+}
+
+export const validateDeceasedMotherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+    const motherBirthDate = drafts.mother?.motherBirthDate
+
+    return checkAgeGapInMonths(
+      deceasedBirthDate,
+      motherBirthDate,
+      'deceased',
+      'mother'
+    )
+  }
+  return undefined
+}
+
+export const validateDeceasedFatherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+    const fatherBirthDate = drafts.father?.fatherBirthDate
+
+    return checkAgeGapInMonths(
+      deceasedBirthDate,
+      fatherBirthDate,
+      'deceased',
+      'father'
+    )
+  }
   return undefined
 }
