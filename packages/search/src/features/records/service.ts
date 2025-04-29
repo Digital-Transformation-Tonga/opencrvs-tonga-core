@@ -428,20 +428,9 @@ export const aggregateRecords = ({
           }
         ]
       : []),
-    {
-      $group: {
-        _id: null,
-        composition: { $push: '$$ROOT' }
-      }
-    },
-    { $project: { _id: 0 } },
-    { $unwind: '$composition' },
-    {
-      $addFields: {
-        bundle: ['$composition']
-      }
-    },
-
+      { $addFields: { bundle: ['$$ROOT'], composition: '$$ROOT' } },
+      { $project: { bundle: 1, composition: 1 } },
+  
     ...(includeHistoryResources
       ? [
           // Get CompositionHistory for the composition
@@ -1062,7 +1051,7 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
   const query = aggregateRecords({ recordId, includeHistoryResources })
   const result = await db
     .collection('Composition')
-    .aggregate<Bundle>(query)
+    .aggregate<Bundle>(query, { allowDiskUse: true })
     .toArray()
 
   const bundle = result[0]
