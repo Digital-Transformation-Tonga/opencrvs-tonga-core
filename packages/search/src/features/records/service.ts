@@ -1054,6 +1054,8 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
     .aggregate<Bundle>(query, { allowDiskUse: true })
     .toArray()
 
+  console.log(JSON.stringify(query))
+
   const bundle = result[0]
 
   if (!bundle) {
