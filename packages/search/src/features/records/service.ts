@@ -1042,51 +1042,67 @@ export const aggregateRecords = ({
     }
   ].flat()
 
-  export async function getRecordById<T extends Array<keyof StateIdentifiers>>(
-    recordId: UUID,
-    _allowedStates: T,
-    includeHistoryResources: boolean
-  ): Promise<StateIdentifiers[T[number]]> {
-    const db = client.db();
-    const query = aggregateRecords({ recordId, includeHistoryResources });
+export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
+  recordId: UUID,
+  _allowedStates: T,
+  includeHistoryResources: boolean
+): Promise<StateIdenfitiers[T[number]]> {
+
   
-    // Get a cursor of *individual* entries, not one giant bundle
-    const cursor = db
-      .collection("Composition")
-      .aggregate<BundleEntry>(query, { allowDiskUse: true });
-  
-    const allEntries: BundleEntry[] = [];
-    for await (const entry of cursor) {
-      if (process.env.NODE_ENV !== "production") {
-        checkForUnresolvedReferences({ entry });
-      }
-      allEntries.push(entry);
-    }
-  
-    if (allEntries.length === 0) {
-      throw new RecordNotFoundError(`Record with id ${recordId} not found`);
-    }
-  
-    // dedupe and sort just like you already do
-    const unique = uniqBy(
-      allEntries,
-      ({ resource }) => `${resource.id} ${resource.meta?.versionId}`
-    );
-    const ordered = sortBy(unique, (e) => (isComposition(e.resource) ? 0 : 1));
-  
-    // build the final bundle in JS
-    const bundle = {
-      resourceType: "Bundle",
-      type: "document",
-      entry: ordered.map(({ _id, ...e }) => ({
-        ...e,
-        resource: e.resource /* sans Mongo’s _id field */,
-      })),
-    };
-  
-    return bundle as StateIdentifiers[T[number]];
+  let result
+  try {
+    const db = client.db()
+    const query = aggregateRecords({ recordId, includeHistoryResources })
+    result = await db
+      .collection('Composition')
+      .aggregate<Bundle>(query, { allowDiskUse: true })
+      .toArray()
+  } catch (error) {
+    throw new Error(`Failed to get record by id: ${error instanceof Error ? error.message : String(error)}`)
   }
-  
+
+  console.log(JSON.stringify(query))
+
+  const bundle = result[0]
+
+  if (!bundle) {
+    throw new RecordNotFoundError(`Record with id ${recordId} not found`)
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    checkForUnresolvedReferences(bundle)
+  }
+
+  const allEntries = uniqBy(
+    result[0].entry,
+    ({ resource }) => `${resource.id} ${resource.meta?.versionId}`
+  )
+
+  /*
+   * Many places in the code assumes that the composition is the first entry in the bundle.
+   */
+
+  const entriesInBackwardsCompatibleOrder = sortBy(allEntries, (entry) => {
+    if (isComposition(entry.resource)) {
+      return 0
+    }
+    return 1
+  })
+
+  const record = {
+    resourceType: 'Bundle',
+    type: 'document',
+    entry: entriesInBackwardsCompatibleOrder.map((entry) => {
+      const { _id, ...resourceWithoutMongoId } = entry.resource
+      return {
+        ...entry,
+        resource: resourceWithoutMongoId
+      }
+    })
+  }
+
+  return record as StateIdenfitiers[T[number]]
+}
 
 export const streamAllRecords = async (includeHistoryResources: boolean) => {
   try {
