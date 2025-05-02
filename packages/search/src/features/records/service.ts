@@ -1049,12 +1049,15 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
 ): Promise<StateIdenfitiers[T[number]]> {
   const db = client.db()
   const query = aggregateRecords({ recordId, includeHistoryResources })
+
+  console.log("=====================\n",JSON.stringify(query),"\n=====================")
+
   const result = await db
     .collection('Composition')
     .aggregate<Bundle>(query, { allowDiskUse: true })
     .toArray()
 
-  console.log(JSON.stringify(query))
+  console.log(JSON.stringify(result))
 
   const bundle = result[0]
 
