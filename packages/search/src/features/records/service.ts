@@ -1047,19 +1047,12 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
   _allowedStates: T,
   includeHistoryResources: boolean
 ): Promise<StateIdenfitiers[T[number]]> {
-
-  
-  let result
-  try {
-    const db = client.db()
-    const query = aggregateRecords({ recordId, includeHistoryResources })
-    result = await db
-      .collection('Composition')
-      .aggregate<Bundle>(query, { allowDiskUse: true })
-      .toArray()
-  } catch (error) {
-    throw new Error(`Failed to get record by id: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  const db = client.db()
+  const query = aggregateRecords({ recordId, includeHistoryResources })
+  const result = await db
+    .collection('Composition')
+    .aggregate<Bundle>(query, { allowDiskUse: true })
+    .toArray()
 
   console.log(JSON.stringify(query))
 
@@ -1105,15 +1098,11 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
 }
 
 export const streamAllRecords = async (includeHistoryResources: boolean) => {
-  try {
-    const connectedClient = await client.connect()
-    const db = connectedClient.db()
-    const query = aggregateRecords({ includeHistoryResources })
+  const connectedClient = await client.connect()
+  const db = connectedClient.db()
+  const query = aggregateRecords({ includeHistoryResources })
 
-    console.log(JSON.stringify(query))
+  console.log(JSON.stringify(query))
 
-    return db.collection('Composition').aggregate<Bundle>(query, { allowDiskUse: true }).stream()
-  } catch (error) {
-    throw new Error(`Failed to stream all records: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  return db.collection('Composition').aggregate<Bundle>(query, { allowDiskUse: true }).stream()
 }
