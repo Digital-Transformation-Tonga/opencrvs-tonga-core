@@ -96,7 +96,9 @@ interface IUserFormDataSubmitAction {
   type: typeof SUBMIT_USER_FORM_DATA
   payload: {
     client: ApolloClient<unknown>
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     mutation: any
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     variables: { [key: string]: any }
     isUpdate: boolean
     officeLocationId: string
@@ -106,7 +108,9 @@ interface IUserFormDataSubmitAction {
 
 export function submitUserFormData(
   client: ApolloClient<unknown>,
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   mutation: any,
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   variables: { [key: string]: any },
   officeLocationId: string,
   isUpdate = false,
@@ -312,9 +316,7 @@ export const userFormReducer: LoopReducer<IUserFormState, UserFormAction> = (
       }
 
     case SUBMIT_USER_FORM_DATA:
-      const { client, mutation, variables, isUpdate } = (
-        action as IUserFormDataSubmitAction
-      ).payload
+      const { client, mutation, variables, isUpdate } = action.payload
       const token = getToken()
       const tokenPayload = getTokenPayload(token)
       const userDetails = variables.user
@@ -368,7 +370,7 @@ export const userFormReducer: LoopReducer<IUserFormState, UserFormAction> = (
       const { errorData } = action.payload
       const duplicateErrorFromGQL = errorData?.graphQLErrors?.find(
         (gqlErr) =>
-          gqlErr.extensions.invalidArgs.duplicateNotificationMethodError
+          gqlErr.extensions.invalidArgs?.duplicateNotificationMethodError
       )
 
       if (duplicateErrorFromGQL) {

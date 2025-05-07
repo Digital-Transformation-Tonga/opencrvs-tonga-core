@@ -8,9 +8,10 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-import { uniq, isString, get, mapKeys } from 'lodash'
-
+import { uniq, isString, get, mapKeys, uniqBy } from 'lodash'
 import { v4 as uuid } from 'uuid'
+import { useSelector } from 'react-redux'
+import { useIntl } from 'react-intl'
 import {
   ResolvedUser,
   ActionDocument,
@@ -19,12 +20,15 @@ import {
   FieldValue,
   FieldType,
   FieldConfigDefaultValue,
-  MetaFields,
   isTemplateVariable,
   mapFieldTypeToZod,
   isFieldValueWithoutTemplates,
-  compositeFieldTypes
+  compositeFieldTypes,
+  getDeclarationFields,
+  SystemVariables
 } from '@opencrvs/commons/client'
+import { getLocations } from '@client/offline/selectors'
+import { countries } from '@client/utils/countries'
 
 /**
  *
@@ -69,26 +73,16 @@ export const getUserIdsFromActions = (actions: ActionDocument[]) => {
   return uniq(userIds)
 }
 
-export const getAllUniqueFields = (currentEvent: EventConfig) => {
-  return [
-    ...new Map(
-      currentEvent.actions.flatMap((action) =>
-        action.forms.flatMap((form) =>
-          form.pages.flatMap((page) =>
-            page.fields.map((field) => [field.id, field])
-          )
-        )
-      )
-    ).values()
-  ]
+export const getAllUniqueFields = (eventConfig: EventConfig) => {
+  return uniqBy(getDeclarationFields(eventConfig), (field) => field.id)
 }
 
 export function flattenEventIndex(
   event: EventIndex
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Omit<EventIndex, 'data'> & { [key: string]: any } {
-  const { data, ...rest } = event
-  return { ...rest, ...mapKeys(data, (_, key) => `${key}`) }
+): Omit<EventIndex, 'declaration'> & { [key: string]: any } {
+  const { declaration, ...rest } = event
+  return { ...rest, ...mapKeys(declaration, (_, key) => `${key}`) }
 }
 
 export type RequireKey<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>
@@ -116,12 +110,12 @@ export function replacePlaceholders({
   fieldType,
   currentValue,
   defaultValue,
-  meta
+  systemVariables
 }: {
   fieldType: FieldType
   currentValue?: FieldValue
   defaultValue?: FieldConfigDefaultValue
-  meta: MetaFields
+  systemVariables: SystemVariables
 }): FieldValue | undefined {
   if (currentValue) {
     return currentValue
@@ -136,7 +130,7 @@ export function replacePlaceholders({
   }
 
   if (isTemplateVariable(defaultValue)) {
-    const resolvedValue = get(meta, defaultValue)
+    const resolvedValue = get(systemVariables, defaultValue)
     const validator = mapFieldTypeToZod(fieldType)
 
     const parsedValue = validator.safeParse(resolvedValue)
@@ -161,7 +155,7 @@ export function replacePlaceholders({
     // @TODO: This resolves template variables in the first level of the object. In the future, we might need to extend it to arbitrary depth.
     for (const [key, val] of Object.entries(result)) {
       if (isTemplateVariable(val)) {
-        const resolvedValue = get(meta, val)
+        const resolvedValue = get(systemVariables, val)
         // For now, we only support resolving template variables for text fields.
         const validator = mapFieldTypeToZod(FieldType.TEXT)
         const parsedValue = validator.safeParse(resolvedValue)
@@ -187,4 +181,63 @@ export function replacePlaceholders({
   throw new Error(
     `Could not resolve ${fieldType}: ${JSON.stringify(defaultValue)}`
   )
+}
+
+/** Does not have parent */
+const ROOT_LOCATION_ID = '0'
+
+/** Given location id, returns full name of the location by resolving the hierarchy values all the way to country name. */
+export function useResolveLocationFullName(
+  locationId: string | undefined,
+  name: string = ''
+) {
+  const locations = useSelector(getLocations)
+  const intl = useIntl()
+
+  if (!locationId) {
+    return name
+  }
+
+  const location = locations[locationId]
+
+  if (!location) {
+    if (locationId === ROOT_LOCATION_ID) {
+      const country = countries.find(
+        (c) => c.value === window.config.COUNTRY
+      )?.label
+
+      const countryName = country ? intl.formatMessage(country) : ''
+
+      return joinValues([name, countryName], ', ')
+    }
+
+    return name
+  }
+
+  const partOf = location.partOf.split('/')[1]
+  return useResolveLocationFullName(
+    partOf,
+    joinValues([name, location.name], ', ')
+  )
+}
+
+export const AssignmentStatus = {
+  ASSIGNED_TO_SELF: 'ASSIGNED_TO_SELF',
+  ASSIGNED_TO_OTHERS: 'ASSIGNED_TO_OTHERS',
+  UNASSIGNED: 'UNASSIGNED'
+} as const
+
+type AssignmentStatus = (typeof AssignmentStatus)[keyof typeof AssignmentStatus]
+
+export function getAssignmentStatus(
+  eventState: EventIndex,
+  userId: string | undefined
+): AssignmentStatus {
+  if (!eventState.assignedTo) {
+    return AssignmentStatus.UNASSIGNED
+  }
+
+  return eventState.assignedTo == userId
+    ? AssignmentStatus.ASSIGNED_TO_SELF
+    : AssignmentStatus.ASSIGNED_TO_OTHERS
 }

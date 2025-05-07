@@ -10,119 +10,165 @@
  */
 
 import {
-  ActionInputWithType,
   ActionType,
   ActionUpdate,
-  FieldConfig,
-  FieldUpdateValue,
-  findActiveActionFields,
-  getActiveActionFormPages,
-  getFieldValidationErrors,
-  Inferred,
+  DeclarationUpdateActions,
+  AnnotationActionType,
+  EventConfig,
   isPageVisible,
-  isVerificationPage
-} from '@opencrvs/commons'
-import { MiddlewareOptions } from '@events/router/middleware/utils'
+  isVerificationPage,
+  annotationActions,
+  findRecordActionPages,
+  DeclarationUpdateActionType,
+  getActionReviewFields,
+  getDeclaration,
+  DeclarationActions,
+  getCurrentEventState,
+  omitHiddenPaginatedFields,
+  EventDocument,
+  deepMerge,
+  deepDropNulls,
+  omitHiddenFields
+} from '@opencrvs/commons/events'
 import { getEventConfigurationById } from '@events/service/config/config'
-import { getEventTypeId, getEventById } from '@events/service/events/events'
-import { TRPCError } from '@trpc/server'
+import { getEventById } from '@events/service/events/events'
+import { ActionMiddlewareOptions } from '@events/router/middleware/utils'
+import {
+  getFormFieldErrors,
+  getInvalidUpdateKeys,
+  getVerificationPageErrors,
+  throwWhenNotEmpty
+} from './utils'
 
-function getFormFieldErrors(formFields: Inferred[], data: ActionUpdate) {
-  return formFields.reduce(
-    (
-      errorResults: {
-        message: string
-        id: string
-        value: FieldUpdateValue
-      }[],
-      field: FieldConfig
-    ) => {
-      const fieldErrors = getFieldValidationErrors({
-        field,
-        values: data
-      }).errors
+function validateDeclarationUpdateAction({
+  eventConfig,
+  event,
+  actionType,
+  declarationUpdate,
+  annotation
+}: {
+  eventConfig: EventConfig
+  event: EventDocument
+  actionType: DeclarationUpdateActionType
+  declarationUpdate: ActionUpdate
+  // @TODO: annotation is always specific to action. Is there ever a need for null?
+  annotation?: ActionUpdate
+}) {
+  /*
+   * Declaration allows partial updates. Updates are validated against primitive types (zod) and field based custom validators (JSON schema).
+   * We need to validate the update against the cleaned declaration, which is a merged version of the previous declaration and the update.
+   */
 
-      if (fieldErrors.length === 0) {
-        return errorResults
-      }
+  // 1. Merge declaration update with previous declaration to validate based on the right conditional rules
+  const previousDeclaration = getCurrentEventState(event).declaration
+  // at this stage, there could be a situation where the toggle (.e.g. dob unknown) is applied but payload would still have both age and dob.
+  const completeDeclaration = deepMerge(previousDeclaration, declarationUpdate)
 
-      // For backend, use the default message without translations.
-      const errormessageWithId = fieldErrors.map((error) => ({
-        message: error.message.defaultMessage,
-        id: field.id,
-        value: data[field.id as keyof typeof data]
-      }))
+  const declarationConfig = getDeclaration(eventConfig)
 
-      return [...errorResults, ...errormessageWithId]
-    },
-    []
+  // 2. Strip declaration of hidden fields. Without additional checks, client could send an update with hidden fields that are malformed (e.g. when dob is unknown anduser has send the age previously. Now they only send dob, without setting dob unknown to false).
+  const cleanedDeclaration = omitHiddenPaginatedFields(
+    declarationConfig,
+    completeDeclaration
   )
+
+  // 3. When declaration update has fields that are not in the cleaned declaration, payload is invalid. Even though it could work when cleaned and merged, it would make it harder to use the `getCurrentEventState` function.
+  const invalidKeys = getInvalidUpdateKeys({
+    update: declarationUpdate,
+    cleaned: cleanedDeclaration
+  })
+
+  if (invalidKeys.length > 0) {
+    return invalidKeys
+  }
+
+  // 4. Validate declaration update against conditional rules, taking into account conditional pages.
+  const declarationErrors = declarationConfig.pages
+    .filter((page) => isPageVisible(page, cleanedDeclaration))
+    .flatMap((page) => getFormFieldErrors(page.fields, cleanedDeclaration))
+
+  const declarationActionParse = DeclarationActions.safeParse(actionType)
+
+  // 5. Validate against action review fields, if applicable
+  const reviewFields = declarationActionParse.success
+    ? getActionReviewFields(eventConfig, declarationActionParse.data)
+    : []
+
+  const visibleAnnotationFields = omitHiddenFields(
+    reviewFields,
+    deepDropNulls(annotation ?? {})
+  )
+
+  const annotationErrors = getFormFieldErrors(
+    reviewFields,
+    visibleAnnotationFields
+  )
+
+  return [...declarationErrors, ...annotationErrors]
 }
 
-function getVerificationPageErrors(
-  verificationPageIds: string[],
-  data: ActionUpdate
-) {
-  return verificationPageIds
-    .map((pageId) => {
-      const value = data[pageId]
-      return typeof value !== 'boolean'
-        ? {
-            message: 'Verification page result is required',
-            id: pageId,
-            value
-          }
-        : null
-    })
-    .filter((error) => error !== null)
-}
+function validateActionAnnotation({
+  eventConfig,
+  actionType,
+  annotation = {}
+}: {
+  eventConfig: EventConfig
+  actionType: AnnotationActionType
+  annotation?: ActionUpdate
+}) {
+  const pages = findRecordActionPages(eventConfig, actionType)
 
-type ActionMiddlewareOptions = Omit<MiddlewareOptions, 'input'> & {
-  input: ActionInputWithType
+  const visibleVerificationPageIds = pages
+    .filter((page) => isVerificationPage(page))
+    .filter((page) => isPageVisible(page, annotation))
+    .map((page) => page.id)
+
+  const formFields = pages.flatMap(({ fields }) =>
+    fields.flatMap((field) => field)
+  )
+
+  const errors = [
+    ...getFormFieldErrors(formFields, annotation),
+    ...getVerificationPageErrors(visibleVerificationPageIds, annotation)
+  ]
+
+  return errors
 }
 
 export function validateAction(actionType: ActionType) {
   return async ({ input, ctx, next }: ActionMiddlewareOptions) => {
-    const eventType = await getEventTypeId(input.eventId)
+    const event = await getEventById(input.eventId)
+
     const eventConfig = await getEventConfigurationById({
       token: ctx.token,
-      eventType
+      eventType: event.type
     })
 
-    const formFields =
-      findActiveActionFields(eventConfig, actionType, input.data) || []
+    const declarationUpdateAction =
+      DeclarationUpdateActions.safeParse(actionType)
 
-    const data = {
-      ...input.data,
-      ...(input.metadata ?? {})
-    } satisfies ActionUpdate
-
-    const event = await getEventById(input.eventId)
-    const eventDeclarationData =
-      event.actions.find((action) => action.type === ActionType.DECLARE)
-        ?.data ?? {}
-
-    // For each visible verification page on the form, we expect the metadata to include a field with boolean value and the page id as key.
-    const visibleVerificationPageIds = getActiveActionFormPages(
-      eventConfig,
-      actionType
-    )
-      .filter((page) => isVerificationPage(page))
-      .filter((page) =>
-        isPageVisible(page, { ...eventDeclarationData, ...data })
-      )
-      .map((page) => page.id)
-
-    const errors = [
-      ...getFormFieldErrors(formFields, data),
-      ...getVerificationPageErrors(visibleVerificationPageIds, data)
-    ]
-
-    if (errors.length > 0) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: JSON.stringify(errors)
+    if (declarationUpdateAction.success) {
+      const errors = validateDeclarationUpdateAction({
+        eventConfig,
+        event,
+        declarationUpdate: input.declaration,
+        annotation: input.annotation,
+        actionType: declarationUpdateAction.data
       })
+
+      throwWhenNotEmpty(errors)
+    }
+
+    const annotationActionParse = annotationActions.safeParse(actionType)
+
+    if (annotationActionParse.success) {
+      const errors = validateActionAnnotation({
+        eventConfig,
+        annotation: input.annotation,
+        actionType: annotationActionParse.data
+      })
+
+      throwWhenNotEmpty(errors)
     }
 
     return next()

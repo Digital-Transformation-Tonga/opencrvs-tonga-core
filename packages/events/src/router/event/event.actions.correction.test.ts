@@ -9,19 +9,18 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
+import { TRPCError } from '@trpc/server'
 import {
-  ActionDocument,
   ActionType,
   AddressType,
   EventDocument,
-  generateActionInput,
+  generateActionDeclarationInput,
+  getAcceptedActions,
   getUUID,
   SCOPES
 } from '@opencrvs/commons'
-import { createTestClient, setupTestCase } from '@events/tests/utils'
-import { TRPCError } from '@trpc/server'
-
 import { tennisClubMembershipEvent } from '@opencrvs/commons/fixtures'
+import { createTestClient, setupTestCase } from '@events/tests/utils'
 
 test(`${ActionType.REQUEST_CORRECTION} prevents forbidden access if missing required scope`, async () => {
   const { user, generator } = await setupTestCase()
@@ -115,8 +114,8 @@ test('a correction request can be added to a created event', async () => {
 
   const declareInput = generator.event.actions.declare(originalEvent.id)
 
-  await client.event.actions.declare(declareInput)
-  const registeredEvent = await client.event.actions.register(
+  await client.event.actions.declare.request(declareInput)
+  const registeredEvent = await client.event.actions.register.request(
     generator.event.actions.register(originalEvent.id)
   )
 
@@ -124,9 +123,12 @@ test('a correction request can be added to a created event', async () => {
     generator.event.actions.correction.request(registeredEvent.id)
   )
 
-  expect(
-    withCorrectionRequest.actions[withCorrectionRequest.actions.length - 1].type
-  ).toBe(ActionType.REQUEST_CORRECTION)
+  expect(withCorrectionRequest.actions.slice(-2)).toEqual([
+    expect.objectContaining({
+      type: ActionType.REQUEST_CORRECTION
+    }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
+  ])
 })
 
 test(`${ActionType.REQUEST_CORRECTION} validation error message contains all the offending fields`, async () => {
@@ -136,40 +138,15 @@ test(`${ActionType.REQUEST_CORRECTION} validation error message contains all the
   const event = await client.event.create(generator.event.create())
 
   const data = generator.event.actions.correction.request(event.id, {
-    data: {
+    declaration: {
       'applicant.dob': '02-02',
+      'applicant.dobUnknown': false,
       'recommender.none': true
     }
   })
 
   await expect(
     client.event.actions.correction.request(data)
-  ).rejects.matchSnapshot()
-})
-
-test(`${ActionType.APPROVE_CORRECTION} validation error message contains all the offending fields`, async () => {
-  const { user, generator } = await setupTestCase()
-  const client = createTestClient(user)
-
-  const event = await client.event.create(generator.event.create())
-
-  const withCorrectionRequest = await client.event.actions.correction.request(
-    generator.event.actions.correction.request(event.id)
-  )
-
-  const data = generator.event.actions.correction.approve(
-    event.id,
-    withCorrectionRequest.id,
-    {
-      data: {
-        'applicant.dob': '02-02',
-        'recommender.none': true
-      }
-    }
-  )
-
-  await expect(
-    client.event.actions.correction.approve(data)
   ).rejects.matchSnapshot()
 })
 
@@ -180,8 +157,9 @@ test(`${ActionType.REQUEST_CORRECTION} when mandatory field is invalid, conditio
   const event = await client.event.create(generator.event.create())
 
   const data = generator.event.actions.correction.request(event.id, {
-    data: {
+    declaration: {
       'applicant.dob': '02-1-2024',
+      'applicant.dobUnknown': false,
       'applicant.firstname': 'John',
       'applicant.surname': 'Doe',
       'recommender.none': true,
@@ -209,6 +187,7 @@ test(`${ActionType.REQUEST_CORRECTION} Skips required field validation when they
 
   const form = {
     'applicant.dob': '2024-02-01',
+    'applicant.dobUnknown': false,
     'applicant.firstname': 'John',
     'applicant.surname': 'Doe',
     'recommender.none': true,
@@ -223,14 +202,16 @@ test(`${ActionType.REQUEST_CORRECTION} Skips required field validation when they
   }
 
   const data = generator.event.actions.correction.request(event.id, {
-    data: form
+    declaration: form
   })
 
   const response = await client.event.actions.correction.request(data)
-  const savedAction = response.actions.find(
+  const activeActions = getAcceptedActions(response)
+
+  const savedAction = activeActions.find(
     (action) => action.type === ActionType.REQUEST_CORRECTION
   )
-  expect(savedAction?.data).toEqual(form)
+  expect(savedAction?.declaration).toEqual(form)
 })
 
 test(`${ActionType.REQUEST_CORRECTION} Prevents adding birth date in future`, async () => {
@@ -241,6 +222,7 @@ test(`${ActionType.REQUEST_CORRECTION} Prevents adding birth date in future`, as
 
   const form = {
     'applicant.dob': '2040-02-01',
+    'applicant.dobUnknown': false,
     'applicant.firstname': 'John',
     'applicant.surname': 'Doe',
     'recommender.none': true,
@@ -255,7 +237,7 @@ test(`${ActionType.REQUEST_CORRECTION} Prevents adding birth date in future`, as
   }
 
   const payload = generator.event.actions.correction.request(event.id, {
-    data: form
+    declaration: form
   })
 
   await expect(
@@ -269,10 +251,10 @@ test('a correction request can be added to a created event', async () => {
 
   const originalEvent = await client.event.create(generator.event.create())
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(originalEvent.id)
   )
-  const registeredEvent = await client.event.actions.register(
+  const registeredEvent = await client.event.actions.register.request(
     generator.event.actions.register(originalEvent.id)
   )
 
@@ -280,9 +262,12 @@ test('a correction request can be added to a created event', async () => {
     generator.event.actions.correction.request(registeredEvent.id)
   )
 
-  expect(
-    withCorrectionRequest.actions[withCorrectionRequest.actions.length - 1].type
-  ).toBe(ActionType.REQUEST_CORRECTION)
+  expect(withCorrectionRequest.actions.slice(-2)).toEqual([
+    expect.objectContaining({
+      type: ActionType.REQUEST_CORRECTION
+    }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
+  ])
 })
 
 describe('when a correction request exists', () => {
@@ -297,17 +282,20 @@ describe('when a correction request exists', () => {
 
     const declareInput = generator.event.actions.declare(originalEvent.id)
 
-    await client.event.actions.declare(declareInput)
+    await client.event.actions.declare.request(declareInput)
 
-    const registeredEvent = await client.event.actions.register(
+    const registeredEvent = await client.event.actions.register.request(
       generator.event.actions.register(originalEvent.id)
     )
 
     withCorrectionRequest = await client.event.actions.correction.request(
       generator.event.actions.correction.request(registeredEvent.id, {
-        data: {
-          ...generateActionInput(tennisClubMembershipEvent, ActionType.DECLARE),
-          'applicant.firstName': 'Johnny'
+        declaration: {
+          ...generateActionDeclarationInput(
+            tennisClubMembershipEvent,
+            ActionType.DECLARE
+          ),
+          'applicant.firstname': 'Johnny'
         }
       })
     )
@@ -326,14 +314,13 @@ describe('when a correction request exists', () => {
           requestId
         )
       )
-
-    const lastAction = withApprovedCorrectionRequest.actions[
-      withApprovedCorrectionRequest.actions.length - 1
-    ] as Extract<ActionDocument, { type: 'APPROVE_CORRECTION' }>
-
-    expect(lastAction.type).toBe(ActionType.APPROVE_CORRECTION)
-
-    expect(lastAction.requestId).toBe(requestId)
+    expect(withApprovedCorrectionRequest.actions.slice(-2)).toEqual([
+      expect.objectContaining({
+        type: ActionType.APPROVE_CORRECTION,
+        requestId
+      }),
+      expect.objectContaining({ type: ActionType.UNASSIGN })
+    ])
   })
 
   test('approving a request fails if request id is incorrect', async () => {

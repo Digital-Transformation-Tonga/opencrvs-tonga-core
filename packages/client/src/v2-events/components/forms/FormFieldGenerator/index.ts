@@ -8,9 +8,5 @@
  *
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
-module.exports = {
-  extends: ['../../.eslintrc.js'],
-  rules: {
-    'import/no-relative-parent-imports': 'off'
-  }
-}
+
+export { FormFieldGenerator } from './FormFieldGenerator'

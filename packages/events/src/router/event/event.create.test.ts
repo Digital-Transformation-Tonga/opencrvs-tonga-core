@@ -9,10 +9,10 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { createTestClient, setupTestCase } from '@events/tests/utils'
-import { SCOPES } from '@opencrvs/commons'
-import { ActionType } from '@opencrvs/commons/client'
 import { TRPCError } from '@trpc/server'
+import { SCOPES } from '@opencrvs/commons'
+import { ActionType } from '@opencrvs/commons/events'
+import { createTestClient, setupTestCase } from '@events/tests/utils'
 
 test(`prevents forbidden access if missing required scope`, async () => {
   const { user, generator } = await setupTestCase()
@@ -44,6 +44,7 @@ test('event can be created and fetched', async () => {
 
   expect(fetchedEvent.actions).toEqual([
     expect.objectContaining({ type: ActionType.CREATE }),
+    expect.objectContaining({ type: ActionType.ASSIGN }),
     expect.objectContaining({
       type: ActionType.READ
     })

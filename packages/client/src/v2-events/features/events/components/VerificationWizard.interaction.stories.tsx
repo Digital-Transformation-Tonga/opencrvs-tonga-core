@@ -14,6 +14,7 @@ import { userEvent, within } from '@storybook/testing-library'
 import React from 'react'
 import { expect, fn } from '@storybook/test'
 import { noop } from 'lodash'
+import { generateTranslationConfig, PageTypes } from '@opencrvs/commons/client'
 import { VerificationWizard } from './VerificationWizard'
 
 const meta: Meta<typeof VerificationWizard> = {
@@ -26,7 +27,6 @@ type Story = StoryObj<typeof VerificationWizard>
 
 const onNextPageSpy = fn()
 const onVerifyActionSpy = fn()
-const onSubmitSpy = fn()
 
 export const VerificationWizardModal: Story = {
   parameters: {
@@ -37,39 +37,44 @@ export const VerificationWizardModal: Story = {
       <VerificationWizard
         currentPage={0}
         pageConfig={{
-          verify: {
-            label: {
-              id: 'v2.buttons.verify',
-              defaultMessage: 'Verify',
-              description: 'Verify button label'
-            }
-          },
-          cancel: {
-            label: {
-              id: 'v2.buttons.cancel',
-              defaultMessage: 'Cancel',
-              description: 'Cancel button label'
+          id: 'verification',
+          fields: [],
+          title: generateTranslationConfig('Verification Wizard'),
+          type: PageTypes.enum.VERIFICATION,
+          actions: {
+            verify: {
+              label: {
+                id: 'v2.buttons.verify',
+                defaultMessage: 'Verify',
+                description: 'Verify button label'
+              }
             },
-            confirmation: {
-              title: {
+            cancel: {
+              label: {
                 id: 'v2.buttons.cancel',
                 defaultMessage: 'Cancel',
-                description: 'Cancel button title'
+                description: 'Cancel button label'
               },
-              body: {
-                id: 'v2.buttons.cancel',
-                defaultMessage: 'Are you sure you want to cancel?',
-                description: 'Cancel button body'
+              confirmation: {
+                title: {
+                  id: 'v2.buttons.cancel',
+                  defaultMessage: 'Cancel',
+                  description: 'Cancel button title'
+                },
+                body: {
+                  id: 'v2.buttons.cancel',
+                  defaultMessage: 'Are you sure you want to cancel?',
+                  description: 'Cancel button body'
+                }
               }
             }
           }
         }}
         pageTitle="Verification Wizard"
         showReviewButton={false}
-        totalPages={1}
         onNextPage={onNextPageSpy}
         onPreviousPage={noop}
-        onSubmit={onSubmitSpy}
+        onSubmit={noop}
         onVerifyAction={onVerifyActionSpy}
       />
     )
@@ -100,7 +105,6 @@ export const VerificationWizardModal: Story = {
           await canvas.findByRole('button', { name: 'Verify' })
         )
 
-        await expect(onSubmitSpy).toHaveBeenCalled()
         await expect(onVerifyActionSpy).toHaveBeenCalled()
       }
     )

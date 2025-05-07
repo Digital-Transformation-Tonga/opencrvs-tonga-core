@@ -15,12 +15,11 @@ import {
   EventState,
   EventConfig,
   isPageVisible,
-  FormPageConfig,
-  FormPageType
+  PageTypes,
+  PageConfig
 } from '@opencrvs/commons/client'
 import { MAIN_CONTENT_ANCHOR_ID } from '@opencrvs/components/lib/Frame/components/SkipToContent'
 import { FormFieldGenerator } from '@client/v2-events/components/forms/FormFieldGenerator'
-import { usePagination } from '@client/v2-events/hooks/usePagination'
 import { VerificationWizard } from './VerificationWizard'
 import { FormWizard } from './FormWizard'
 /**
@@ -29,69 +28,74 @@ import { FormWizard } from './FormWizard'
  */
 export function Pages({
   form,
-  pageId,
   showReviewButton,
   formPages,
-  onFormPageChange,
+  onPageChange,
   onSubmit,
+  pageId,
   continueButtonText,
   setFormData,
   disableContinue = false,
   eventConfig,
-  eventDeclarationData
+  declaration
 }: {
   form: EventState
-  setFormData: (data: EventState) => void
+  setFormData: (dec: EventState) => void
   pageId: string
   showReviewButton?: boolean
-  formPages: FormPageConfig[]
-  onFormPageChange: (nextPageId: string) => void
+  formPages: PageConfig[]
+  onPageChange: (nextPageId: string) => void
   onSubmit: () => void
   continueButtonText?: string
   disableContinue?: boolean
   eventConfig?: EventConfig
-  eventDeclarationData?: EventState
+  declaration?: EventState
 }) {
   const intl = useIntl()
+  const visiblePages = formPages.filter((page) => isPageVisible(page, form))
+  const pageIdx = visiblePages.findIndex((p) => p.id === pageId)
+  const page = pageIdx === -1 ? visiblePages[0] : visiblePages[pageIdx]
 
-  const pageIdx = formPages.findIndex((p) => p.id === pageId)
-  const pages = formPages.filter((page) => isPageVisible(page, form))
-
-  const {
-    page: currentPage,
-    next,
-    previous,
-    total
-  } = usePagination(pages.length, Math.max(pageIdx, 0))
-  const page = pages[currentPage]
-
+  // If page changes, scroll to the top of the page using the anchor element ID
   useEffect(() => {
-    const pageChanged = pages[currentPage].id !== pageId
+    document.getElementById(MAIN_CONTENT_ANCHOR_ID)?.scrollTo({ top: 0 })
+  }, [pageId])
 
-    if (pageChanged) {
-      onFormPageChange(pages[currentPage].id)
+  function onNextPage() {
+    const nextPageIdx = pageIdx + 1
+    const nextPage =
+      nextPageIdx < visiblePages.length ? visiblePages[nextPageIdx] : undefined
 
-      // We use the main content anchor id to scroll to the top of the frame when page changes
-      document.getElementById(MAIN_CONTENT_ANCHOR_ID)?.scrollTo({ top: 0 })
+    // If there is a next page on the form available, navigate to it.
+    // Otherwise, submit the form.
+    return nextPage ? onPageChange(nextPage.id) : onSubmit()
+  }
+
+  function onPreviousPage() {
+    const previousPageIdx = pageIdx - 1
+    const previousPage =
+      previousPageIdx >= 0 ? visiblePages[previousPageIdx] : undefined
+
+    if (previousPage) {
+      return onPageChange(previousPage.id)
     }
-  }, [pageId, currentPage, pages, onFormPageChange])
+  }
 
   const wizardProps = {
-    currentPage,
+    currentPage: pageIdx,
     pageTitle: intl.formatMessage(page.title),
     showReviewButton,
-    totalPages: total,
-    onNextPage: next,
-    onPreviousPage: previous,
+    onNextPage,
+    onPreviousPage,
     onSubmit
   }
 
   const fields = (
     <FormFieldGenerator
+      declaration={declaration}
       eventConfig={eventConfig}
-      eventDeclarationData={eventDeclarationData}
       fields={page.fields}
-      formData={form}
+      form={form}
       id="locationForm"
       initialValues={form}
       setAllFieldsDirty={false}
@@ -99,11 +103,11 @@ export function Pages({
     />
   )
 
-  if (page.type === FormPageType.VERIFICATION) {
+  if (page.type === PageTypes.enum.VERIFICATION) {
     return (
       <VerificationWizard
         {...wizardProps}
-        pageConfig={page.actions}
+        pageConfig={page}
         onVerifyAction={(val: boolean) => {
           setFormData({
             ...form,

@@ -16,8 +16,10 @@ import { ActionUpdate } from './ActionDocument'
 export const BaseActionInput = z.object({
   eventId: z.string(),
   transactionId: z.string(),
-  data: ActionUpdate,
-  metadata: ActionUpdate.optional()
+  declaration: ActionUpdate.default({}),
+  annotation: ActionUpdate.optional(),
+  originalActionId: z.string().optional(),
+  keepAssignment: z.boolean().optional()
 })
 
 const CreateActionInput = BaseActionInput.merge(
@@ -30,10 +32,7 @@ const CreateActionInput = BaseActionInput.merge(
 export const RegisterActionInput = BaseActionInput.merge(
   z.object({
     type: z.literal(ActionType.REGISTER).default(ActionType.REGISTER),
-    identifiers: z.object({
-      trackingId: z.string(),
-      registrationNumber: z.string()
-    })
+    registrationNumber: z.string().optional()
   })
 )
 
@@ -99,17 +98,22 @@ export const ArchiveActionInput = BaseActionInput.merge(
 )
 export type ArchiveActionInput = z.infer<typeof ArchiveActionInput>
 
-const AssignActionInput = BaseActionInput.merge(
+export const AssignActionInput = BaseActionInput.merge(
   z.object({
     type: z.literal(ActionType.ASSIGN).default(ActionType.ASSIGN),
     assignedTo: z.string()
   })
 )
-const UnassignActionInput = BaseActionInput.merge(
+
+export type AssignActionInput = z.infer<typeof AssignActionInput>
+
+export const UnassignActionInput = BaseActionInput.merge(
   z.object({
-    type: z.literal(ActionType.UNASSIGN).default(ActionType.UNASSIGN)
+    type: z.literal(ActionType.UNASSIGN).default(ActionType.UNASSIGN),
+    assignedTo: z.literal(null).default(null)
   })
 )
+export type UnassignActionInput = z.infer<typeof UnassignActionInput>
 
 export const RequestCorrectionActionInput = BaseActionInput.merge(
   z.object({

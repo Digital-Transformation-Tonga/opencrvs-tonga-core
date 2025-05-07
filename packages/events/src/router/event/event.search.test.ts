@@ -9,8 +9,8 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import { createTestClient, setupTestCase } from '@events/tests/utils'
 import { AddressType } from '@opencrvs/commons'
+import { createTestClient, setupTestCase } from '@events/tests/utils'
 
 test('Returns empty list when no events match search criteria', async () => {
   const { user, generator } = await setupTestCase()
@@ -33,9 +33,9 @@ test('Returns empty list when no events match search criteria', async () => {
 
   const event = await client.event.create(generator.event.create())
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event.id, {
-      data: initialData
+      declaration: initialData
     })
   )
   const searchCriteria = {
@@ -101,19 +101,19 @@ test('Returns events that match the text field criteria of applicant', async () 
   const event2 = await client.event.create(generator.event.create())
   const event3 = await client.event.create(generator.event.create())
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event1.id, {
-      data: record1
+      declaration: record1
     })
   )
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event2.id, {
-      data: record2
+      declaration: record2
     })
   )
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event3.id, {
-      data: record3
+      declaration: record3
     })
   )
   const searchCriteria = {
@@ -165,14 +165,14 @@ test('Returns events that match date of birth of applicant', async () => {
   const event1 = await client.event.create(generator.event.create())
   const event2 = await client.event.create(generator.event.create())
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event1.id, {
-      data: record1
+      declaration: record1
     })
   )
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event2.id, {
-      data: record2
+      declaration: record2
     })
   )
 
@@ -182,7 +182,7 @@ test('Returns events that match date of birth of applicant', async () => {
   }
 
   const fetchedEvents = await client.event.search(searchCriteria)
-  expect(fetchedEvents[0].data['applicant.firstname']).toBe('Johnson') // fetches first document as result
+  expect(fetchedEvents[0].declaration['applicant.firstname']).toBe('Johnson') // fetches first document as result
   expect(fetchedEvents).toHaveLength(1)
 })
 
@@ -223,14 +223,14 @@ test('Does not return events when searching with a similar but different date of
   const event1 = await client.event.create(generator.event.create())
   const event2 = await client.event.create(generator.event.create())
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event1.id, {
-      data: record1
+      declaration: record1
     })
   )
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(event2.id, {
-      data: record2
+      declaration: record2
     })
   )
 

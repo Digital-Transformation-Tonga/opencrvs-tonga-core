@@ -16,8 +16,8 @@ import { trpcClient } from '@client/v2-events/trpc'
 
 export interface OnDeclareParams {
   eventId: string
-  data: EventState
-  metadata?: EventState
+  declaration: EventState
+  annotation?: EventState
 }
 /**
  * Runs a sequence of actions from declare to register.
@@ -27,34 +27,39 @@ export interface OnDeclareParams {
  */
 export async function registerOnDeclare({
   eventId,
-  data,
-  metadata
+  declaration,
+  annotation
 }: {
   eventId: string
-  data: EventState
-  metadata?: EventState
+  declaration: EventState
+  annotation?: EventState
 }) {
-  await trpcClient.event.actions.declare.mutate({
-    data,
-    metadata,
-    eventId,
-    transactionId: getUUID()
-  })
-
-  await trpcClient.event.actions.validate.mutate({
-    data,
-    metadata,
+  await trpcClient.event.actions.declare.request.mutate({
+    declaration,
+    annotation,
     eventId,
     transactionId: getUUID(),
-    duplicates: []
+    keepAssignment: true
   })
 
-  const latestResponse = await trpcClient.event.actions.register.mutate({
-    data,
-    metadata,
+  // update is a patch, no need to send again.
+  await trpcClient.event.actions.validate.request.mutate({
+    declaration: {},
+    annotation,
     eventId,
-    transactionId: getUUID()
+    transactionId: getUUID(),
+    duplicates: [],
+    keepAssignment: true
   })
+
+  const latestResponse = await trpcClient.event.actions.register.request.mutate(
+    {
+      declaration: {},
+      annotation,
+      eventId,
+      transactionId: getUUID()
+    }
+  )
 
   return latestResponse
 }
@@ -67,24 +72,63 @@ export async function registerOnDeclare({
  */
 export async function validateOnDeclare(variables: {
   eventId: string
-  data: EventState
-  metadata?: EventState
+  declaration: EventState
+  annotation?: EventState
 }) {
-  const { eventId, data, metadata } = variables
-  await trpcClient.event.actions.declare.mutate({
-    data,
-    metadata,
-    eventId,
-    transactionId: getUUID()
-  })
-
-  const latestResponse = await trpcClient.event.actions.validate.mutate({
-    data,
-    metadata,
+  const { eventId, declaration, annotation } = variables
+  await trpcClient.event.actions.declare.request.mutate({
+    declaration,
+    annotation,
     eventId,
     transactionId: getUUID(),
-    duplicates: []
+    keepAssignment: true
   })
+
+  const latestResponse = await trpcClient.event.actions.validate.request.mutate(
+    {
+      // update is a patch, no need to send again.
+      declaration: {},
+      annotation,
+      eventId,
+      transactionId: getUUID(),
+      duplicates: []
+    }
+  )
+
+  return latestResponse
+}
+
+/**
+ * Runs a sequence of actions from  validate to register.
+ *
+ * Defining the function here, statically allows offline support.
+ * Moving the function to one level up will break offline support since the definition needs to be static.
+ */
+export async function registerOnValidate(variables: {
+  eventId: string
+  declaration: EventState
+  annotation?: EventState
+}) {
+  const { eventId, declaration, annotation } = variables
+  await trpcClient.event.actions.validate.request.mutate({
+    declaration,
+    annotation,
+    eventId,
+    transactionId: getUUID(),
+    duplicates: [],
+    keepAssignment: true
+  })
+
+  const latestResponse = await trpcClient.event.actions.register.request.mutate(
+    {
+      // update is a patch, no need to send again.
+      declaration: {},
+      annotation,
+      eventId,
+      transactionId: getUUID(),
+      duplicates: []
+    }
+  )
 
   return latestResponse
 }

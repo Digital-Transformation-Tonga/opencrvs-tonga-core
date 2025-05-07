@@ -22,13 +22,15 @@ test('actions can be added to created events', async () => {
 
   const originalEvent = await client.event.create(generator.event.create())
 
-  const event = await client.event.actions.declare(
+  const event = await client.event.actions.declare.request(
     generator.event.actions.declare(originalEvent.id)
   )
 
   expect(event.actions).toEqual([
     expect.objectContaining({ type: ActionType.CREATE }),
-    expect.objectContaining({ type: ActionType.DECLARE })
+    expect.objectContaining({ type: ActionType.ASSIGN }),
+    expect.objectContaining({ type: ActionType.DECLARE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN })
   ])
 })
 
@@ -39,23 +41,27 @@ test('Action data can be retrieved', async () => {
   const originalEvent = await client.event.create(generator.event.create())
 
   const generatedDeclaration = generator.event.actions.declare(originalEvent.id)
-  await client.event.actions.declare(generatedDeclaration)
+  await client.event.actions.declare.request(generatedDeclaration)
 
   const generatedValidation = generator.event.actions.validate(originalEvent.id)
-  await client.event.actions.validate(generatedValidation)
+  await client.event.actions.validate.request(generatedValidation)
 
   const generatedRegistration = generator.event.actions.register(
     originalEvent.id
   )
-  await client.event.actions.register(generatedRegistration)
+  await client.event.actions.register.request(generatedRegistration)
 
   const updatedEvent = await client.event.get(originalEvent.id)
 
   expect(updatedEvent.actions).toEqual([
     expect.objectContaining({ type: ActionType.CREATE }),
+    expect.objectContaining({ type: ActionType.ASSIGN }),
     expect.objectContaining({ type: ActionType.DECLARE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.VALIDATE }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.REGISTER }),
+    expect.objectContaining({ type: ActionType.UNASSIGN }),
     expect.objectContaining({ type: ActionType.READ })
   ])
 })
@@ -89,31 +95,31 @@ test('Action data accepts partial changes', async () => {
 
   const firstDeclarationPayload = generator.event.actions.declare(
     originalEvent.id,
-    { data: initialForm }
+    { declaration: initialForm }
   )
-  await client.event.actions.declare(firstDeclarationPayload)
+  await client.event.actions.declare.request(firstDeclarationPayload)
 
   const declarationWithoutVillage = generator.event.actions.declare(
     originalEvent.id,
     {
-      data: {
+      declaration: {
         ...initialForm,
         'applicant.address': addressWithoutVillage
       }
     }
   )
 
-  await client.event.actions.declare(declarationWithoutVillage)
+  await client.event.actions.declare.request(declarationWithoutVillage)
 
   const updatedEvent = await client.event.get(originalEvent.id)
 
   const eventStateBeforeVillageRemoval = getCurrentEventState(updatedEvent)
-  expect(eventStateBeforeVillageRemoval.data).toEqual(initialForm)
+  expect(eventStateBeforeVillageRemoval.declaration).toEqual(initialForm)
 
   const declarationWithVillageNull = generator.event.actions.declare(
     originalEvent.id,
     {
-      data: {
+      declaration: {
         ...initialForm,
         'applicant.address': {
           ...addressWithoutVillage,
@@ -123,13 +129,13 @@ test('Action data accepts partial changes', async () => {
     }
   )
 
-  await client.event.actions.declare(declarationWithVillageNull)
+  await client.event.actions.declare.request(declarationWithVillageNull)
   const eventAfterVillageRemoval = await client.event.get(originalEvent.id)
   const stateAfterVillageRemoval = getCurrentEventState(
     eventAfterVillageRemoval
   )
 
-  expect(stateAfterVillageRemoval.data).toEqual({
+  expect(stateAfterVillageRemoval.declaration).toEqual({
     ...initialForm,
     'applicant.address': addressWithoutVillage
   })
@@ -152,8 +158,8 @@ test('READ action does not delete draft', async () => {
 
   const draftData = {
     type: ActionType.DECLARE,
-    data: {
-      ...generator.event.actions.declare(originalEvent.id).data,
+    declaration: {
+      ...generator.event.actions.declare(originalEvent.id).declaration,
       'applicant.image': {
         type: 'image/png',
         originalFilename: 'abcd.png',
@@ -185,8 +191,8 @@ test('Action other than READ deletes draft', async () => {
 
   const draftData = {
     type: ActionType.DECLARE,
-    data: {
-      ...generator.event.actions.declare(originalEvent.id).data,
+    declaration: {
+      ...generator.event.actions.declare(originalEvent.id).declaration,
       'applicant.image': {
         type: 'image/png',
         originalFilename: 'abcd.png',
@@ -202,11 +208,39 @@ test('Action other than READ deletes draft', async () => {
   const draftEvents = await client.event.draft.list()
   expect(draftEvents.length).toBe(1)
 
-  await client.event.actions.declare(
+  await client.event.actions.declare.request(
     generator.event.actions.declare(originalEvent.id)
   )
 
   const draftEventsAfterRead = await client.event.draft.list()
 
   expect(draftEventsAfterRead.length).toBe(0)
+})
+
+test('partial declaration update accounts for conditional field values not in payload', async () => {
+  const { user, generator } = await setupTestCase()
+  const client = createTestClient(user)
+
+  const originalEvent = await client.event.create(generator.event.create())
+
+  await client.event.actions.declare.request(
+    generator.event.actions.declare(originalEvent.id)
+  )
+
+  await client.event.actions.validate.request({
+    type: ActionType.VALIDATE,
+    duplicates: [],
+    declaration: {
+      'applicant.dobUnknown': true,
+      'applicant.age': 25
+    },
+    eventId: originalEvent.id,
+    transactionId: '123-123-124'
+  })
+
+  const event = await client.event.get(originalEvent.id)
+
+  const eventState = getCurrentEventState(event)
+
+  expect(eventState.declaration).toMatchSnapshot()
 })

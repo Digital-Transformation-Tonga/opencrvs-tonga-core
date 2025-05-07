@@ -7626,6 +7626,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             line?: Array<string | null> | null
           } | null
         } | null
+        questionnaire?: Maybe<Maybe<QuestionnaireQuestion>[]> | undefined
         registration?: {
           __typename?: 'Registration'
           trackingId?: string | null
@@ -7688,6 +7689,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             country?: string | null
           } | null
         } | null
+        questionnaire?: Maybe<Maybe<QuestionnaireQuestion>[]> | undefined
         registration?: {
           __typename?: 'Registration'
           trackingId?: string | null

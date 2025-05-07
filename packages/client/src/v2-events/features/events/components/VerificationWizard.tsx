@@ -40,7 +40,6 @@ const messages = defineMessages({
 export const VerificationWizard = ({
   children,
   currentPage,
-  totalPages,
   onSubmit,
   pageTitle,
   onNextPage,
@@ -54,9 +53,6 @@ export const VerificationWizard = ({
 }) => {
   const intl = useIntl()
   const [cancelModal, openCancelModal] = useModal()
-
-  const onContinue =
-    currentPage + 1 < totalPages && onNextPage ? onNextPage : onSubmit
 
   const onCancelButtonClick = () => {
     void openCancelModal<void>((close) => (
@@ -77,7 +73,7 @@ export const VerificationWizard = ({
             onClick={() => {
               onVerifyAction(false)
               close()
-              return onContinue()
+              return onNextPage()
             }}
           >
             {intl.formatMessage(messages.confirm)}
@@ -86,11 +82,11 @@ export const VerificationWizard = ({
         handleClose={() => close()}
         responsive={false}
         show={true}
-        title={intl.formatMessage(pageConfig.cancel.confirmation.title)}
+        title={intl.formatMessage(pageConfig.actions.cancel.confirmation.title)}
       >
         <Stack>
           <Text color="grey500" element="p" variant="reg16">
-            {intl.formatMessage(pageConfig.cancel.confirmation.body)}
+            {intl.formatMessage(pageConfig.actions.cancel.confirmation.body)}
           </Text>
         </Stack>
       </ResponsiveModal>
@@ -119,7 +115,7 @@ export const VerificationWizard = ({
               onClick={onCancelButtonClick}
             >
               <Cross color="white" />
-              {intl.formatMessage(pageConfig.cancel.label)}
+              {intl.formatMessage(pageConfig.actions.cancel.label)}
             </Button>
 
             <Button
@@ -128,11 +124,11 @@ export const VerificationWizard = ({
               type="positive"
               onClick={() => {
                 onVerifyAction(true)
-                onContinue()
+                onNextPage()
               }}
             >
               <Check color="white" />
-              {intl.formatMessage(pageConfig.verify.label)}
+              {intl.formatMessage(pageConfig.actions.verify.label)}
             </Button>
 
             {showReviewButton && (

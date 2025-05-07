@@ -9,9 +9,12 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
+import { TRPCError } from '@trpc/server'
+import { z } from 'zod'
 import {
   ActionDocument,
   ActionInputWithType,
+  ActionStatus,
   ActionUpdate,
   Draft,
   EventDocument,
@@ -20,18 +23,19 @@ import {
   FieldType,
   FieldUpdateValue,
   FileFieldValue,
-  findActiveActionFields
+  getDeclarationFields,
+  getAcceptedActions,
+  AsyncRejectActionDocument,
+  ActionType,
+  getCurrentEventState,
+  EventStatus,
+  isWriteAction
 } from '@opencrvs/commons/events'
-import {
-  getEventConfigurationById,
-  notifyOnAction
-} from '@events/service/config/config'
+import { getUUID } from '@opencrvs/commons'
+import { getEventConfigurationById } from '@events/service/config/config'
 import { deleteFile, fileExists } from '@events/service/files'
 import { deleteEventIndex, indexEvent } from '@events/service/indexing/indexing'
 import * as events from '@events/storage/mongodb/events'
-import { ActionType, getUUID } from '@opencrvs/commons'
-import { TRPCError } from '@trpc/server'
-import { z } from 'zod'
 import { deleteDraftsByEventId, getDraftsForAction } from './drafts'
 
 async function getEventByTransactionId(transactionId: string) {
@@ -67,12 +71,6 @@ export async function getEventById(id: string): Promise<EventDocument> {
   return event
 }
 
-export async function getEventTypeId(id: string) {
-  const event = await getEventById(id)
-
-  return event.type
-}
-
 function getValidFileValue(
   fieldKey: string,
   fieldValue: FieldUpdateValue,
@@ -93,10 +91,11 @@ async function deleteEventAttachments(token: string, event: EventDocument) {
     eventType: event.type
   })
 
-  for (const ac of event.actions) {
-    const fieldConfigs = findActiveActionFields(configuration, ac.type) || []
-
-    for (const [key, value] of Object.entries(ac.data)) {
+  const actions = getAcceptedActions(event)
+  // @TODO: Check that this works after making sure data incldues only declaration fields.
+  const fieldConfigs = getDeclarationFields(configuration)
+  for (const ac of actions) {
+    for (const [key, value] of Object.entries(ac.declaration)) {
       const fileValue = getValidFileValue(key, value, fieldConfigs)
 
       if (!fileValue) {
@@ -121,17 +120,13 @@ export async function deleteEvent(
     throw new EventNotFoundError(eventId)
   }
 
-  /**
-   * Once an event is declared, it cannot be removed anymore.
-   */
-  const hasNonDeletableActions = event.actions.some(
-    (action) => action.type !== ActionType.CREATE
-  )
+  const eventState = getCurrentEventState(event)
 
-  if (hasNonDeletableActions) {
+  // Once an event is declared or notified, it can not be deleted anymore
+  if (eventState.status !== EventStatus.CREATED) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: 'Event has actions that cannot be deleted'
+      message: 'A declared or notified event can not be deleted'
     })
   }
 
@@ -159,6 +154,7 @@ function generateTrackingId(): string {
 }
 
 type EventDocumentWithTransActionId = EventDocument & { transactionId: string }
+
 export async function createEvent({
   eventInput,
   createdAtLocation,
@@ -197,10 +193,26 @@ export async function createEvent({
         createdBy,
         createdAtLocation,
         id: getUUID(),
-        data: {}
+        declaration: {},
+        status: ActionStatus.Accepted
       }
     ]
   })
+
+  const action: ActionDocument = {
+    type: ActionType.ASSIGN,
+    assignedTo: createdBy,
+    declaration: {},
+    createdBy,
+    createdAt: now,
+    createdAtLocation,
+    id,
+    status: ActionStatus.Accepted
+  }
+
+  await db
+    .collection<EventDocument>('events')
+    .updateOne({ id }, { $push: { actions: action }, $set: { updatedAt: now } })
 
   const event = await getEventById(id)
   await indexEvent(event)
@@ -234,7 +246,7 @@ async function cleanUnreferencedAttachmentsFromPreviousDrafts(
   drafts: Draft[]
 ): Promise<void> {
   const previousFileValuesInDrafts = drafts
-    .map((draft) => extractFileValues(draft.action.data, fieldConfigs))
+    .map((draft) => extractFileValues(draft.action.declaration, fieldConfigs))
     .flat()
 
   for (const previousFileValue of previousFileValuesInDrafts) {
@@ -257,14 +269,17 @@ export async function addAction(
     createdBy,
     token,
     createdAtLocation,
-    transactionId
+    transactionId,
+    status
   }: {
     eventId: string
     createdBy: string
     createdAtLocation: string
     token: string
     transactionId: string
-  }
+    status: ActionStatus
+  },
+  actionId = getUUID()
 ): Promise<EventDocument> {
   const db = await events.getClient()
   const now = new Date().toISOString()
@@ -274,9 +289,12 @@ export async function addAction(
     eventType: event.type
   })
 
-  const fieldConfigs =
-    findActiveActionFields(configuration, input.type, input.data) || []
-  const fileValuesInCurrentAction = extractFileValues(input.data, fieldConfigs)
+  // @TODO: Check that this works after making sure data incldues only declaration fields.
+  const fieldConfigs = getDeclarationFields(configuration)
+  const fileValuesInCurrentAction = extractFileValues(
+    input.declaration,
+    fieldConfigs
+  )
 
   for (const file of fileValuesInCurrentAction) {
     if (!(await fileExists(file.file.filename, token))) {
@@ -284,12 +302,14 @@ export async function addAction(
     }
   }
 
-  if (input.type === ActionType.ARCHIVE && input.metadata?.isDuplicate) {
-    input.transactionId = getUUID()
+  if (input.type === ActionType.ARCHIVE && input.annotation?.isDuplicate) {
+    input.transactionId = `${transactionId}-${ActionType.MARKED_AS_DUPLICATE.toLocaleLowerCase()}`
     await db.collection<EventDocument>('events').updateOne(
       {
         id: eventId,
-        'actions.transactionId': { $nin: [transactionId, input.transactionId] }
+        'actions.transactionId': {
+          $ne: input.transactionId
+        }
       },
       {
         $push: {
@@ -299,7 +319,8 @@ export async function addAction(
             createdBy,
             createdAt: now,
             createdAtLocation,
-            id: getUUID()
+            id: getUUID(),
+            status
           }
         },
         $set: {
@@ -307,23 +328,48 @@ export async function addAction(
         }
       }
     )
-    input.transactionId = transactionId
   }
+
+  input.transactionId = `${transactionId}-${input.type.toLocaleLowerCase()}`
 
   const action: ActionDocument = {
     ...input,
     createdBy,
     createdAt: now,
     createdAtLocation,
-    id: getUUID()
+    id: actionId,
+    status: status
   }
 
   await db
     .collection<EventDocument>('events')
     .updateOne(
-      { id: eventId, 'actions.transactionId': { $ne: transactionId } },
+      { id: eventId, 'actions.transactionId': { $ne: input.transactionId } },
       { $push: { actions: action }, $set: { updatedAt: now } }
     )
+
+  if (isWriteAction(input.type) && !input.keepAssignment) {
+    input.transactionId = `${transactionId}-${ActionType.UNASSIGN.toLocaleLowerCase()}`
+    await db.collection<EventDocument>('events').updateOne(
+      { id: eventId, 'actions.transactionId': { $ne: input.transactionId } },
+      {
+        $push: {
+          actions: {
+            ...input,
+            type: ActionType.UNASSIGN,
+            declaration: {},
+            assignedTo: null,
+            createdBy,
+            createdAt: now,
+            createdAtLocation,
+            id: actionId,
+            status: status
+          }
+        },
+        $set: { updatedAt: now }
+      }
+    )
+  }
 
   const drafts = await getDraftsForAction(eventId, createdBy, input.type)
 
@@ -335,11 +381,45 @@ export async function addAction(
   )
 
   const updatedEvent = await getEventById(eventId)
+
   if (action.type !== ActionType.READ) {
     await indexEvent(updatedEvent)
-    await notifyOnAction(input, updatedEvent, token)
-    await deleteDraftsByEventId(eventId)
+
+    if (action.type !== ActionType.ASSIGN) {
+      await deleteDraftsByEventId(eventId)
+    }
   }
+
+  return updatedEvent
+}
+
+type AsyncRejectActionInput = Omit<
+  z.infer<typeof AsyncRejectActionDocument>,
+  'createdAt' | 'id' | 'status'
+> & { transactionId: string; eventId: string }
+
+export async function addAsyncRejectAction(input: AsyncRejectActionInput) {
+  const db = await events.getClient()
+  const now = new Date().toISOString()
+  const { transactionId, eventId } = input
+
+  const action = {
+    ...input,
+    createdAt: now,
+    id: getUUID(),
+    status: ActionStatus.Rejected
+  } satisfies AsyncRejectActionDocument
+
+  await db
+    .collection<EventDocument>('events')
+    .updateOne(
+      { id: eventId, 'actions.transactionId': { $ne: transactionId } },
+      { $push: { actions: action }, $set: { updatedAt: now } }
+    )
+
+  const updatedEvent = await getEventById(eventId)
+  await indexEvent(updatedEvent)
+  await deleteDraftsByEventId(eventId)
 
   return updatedEvent
 }

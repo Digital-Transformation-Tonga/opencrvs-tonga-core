@@ -36,11 +36,12 @@ import { gqlToDraftTransformer } from '@client/transformer'
 import { messages as userFormMessages } from '@client/i18n/messages/views/userForm'
 import { CREATE_USER_ON_LOCATION } from '@client/navigation/routes'
 import { getOfflineData } from '@client/offline/selectors'
-import { getUserDetails } from '@client/profile/profileSelectors'
+import { getScope, getUserDetails } from '@client/profile/profileSelectors'
 import {
   RouteComponentProps,
   withRouter
 } from '@client/components/WithRouterProps'
+import { Scope, SCOPES, UUID } from '@opencrvs/commons/client'
 
 type IUserProps = {
   userId?: string
@@ -105,6 +106,7 @@ const CreateNewUserComponent = (props: WithApolloClient<Props>) => {
         clearUserFormData()
       }
       if (userId) {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         fetchAndStoreUserData(client as ApolloClient<any>, {
           userId
         })
@@ -155,6 +157,7 @@ const CreateNewUserComponent = (props: WithApolloClient<Props>) => {
   }
 
   if (section.viewType === 'preview') {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     return <UserReviewForm client={client as ApolloClient<any>} {...props} />
   }
   return null
@@ -196,19 +199,59 @@ function getNextSectionIds(
   }
 }
 
+function addJurisdictionFilterToLocationSearchInput(
+  section: IFormSection,
+  userOfficeId: UUID
+): IFormSection {
+  return {
+    ...section,
+    groups: section.groups.map((group) => ({
+      ...group,
+      fields: group.fields.map((field) => {
+        if (field.type !== 'LOCATION_SEARCH_INPUT') {
+          return field
+        }
+        return {
+          ...field,
+          userOfficeId
+        }
+      })
+    }))
+  }
+}
+
 const mapStateToProps = (state: IStoreState, props: RouteComponentProps) => {
   const config = getOfflineData(state)
   const user = getUserDetails(state)
+  const scopes = getScope(state) ?? []
   const sectionId =
     props.router.params.sectionId || state.userForm.userForm!.sections[0].id
 
-  const section = state.userForm.userForm.sections.find(
+  let section = state.userForm.userForm.sections.find(
     (section) => section.id === sectionId
-  ) as IFormSection
+  )
 
   if (!section) {
     throw new Error(`No section found ${sectionId}`)
   }
+
+  if (!user?.primaryOffice.id) {
+    throw new Error(`No primary office found for user`)
+  }
+
+  section = scopes.some((scope) =>
+    (
+      [
+        SCOPES.USER_CREATE_MY_JURISDICTION,
+        SCOPES.USER_UPDATE_MY_JURISDICTION
+      ] as Scope[]
+    ).includes(scope)
+  )
+    ? addJurisdictionFilterToLocationSearchInput(
+        section,
+        user.primaryOffice.id as UUID
+      )
+    : section
 
   let formData = { ...state.userForm.userFormData }
   if (props.router.params.locationId) {

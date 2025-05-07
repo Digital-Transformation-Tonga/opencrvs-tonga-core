@@ -309,6 +309,7 @@ function InProgressComponent(props: IRegistrarHomeProps) {
         ...item,
         notificationSent:
           item.notificationSent &&
+          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
           formattedDuration(item.notificationSent as any),
         dateOfEvent:
           item.dateOfEvent && formattedDuration(item.dateOfEvent as Date)
@@ -387,13 +388,13 @@ function InProgressComponent(props: IRegistrarHomeProps) {
         )
       },
       sections: [
-        {
-          id: SELECTOR_ID.fieldAgentDrafts,
-          title: `${props.intl.formatMessage(
-            messages.inProgressFieldAgents
-          )} (${fieldAgentCount})`,
-          disabled: false
-        },
+        // {
+        //   id: SELECTOR_ID.fieldAgentDrafts,
+        //   title: `${props.intl.formatMessage(
+        //     messages.inProgressFieldAgents
+        //   )} (${fieldAgentCount})`,
+        //   disabled: false
+        // },
         {
           id: SELECTOR_ID.hospitalDrafts,
           title: `${props.intl.formatMessage(
@@ -453,10 +454,10 @@ function InProgressComponent(props: IRegistrarHomeProps) {
         ? true
         : false
       : props.queryData.notificationData &&
-          props.queryData.notificationData.totalItems &&
-          props.queryData.notificationData.totalItems > props.pageSize
-        ? true
-        : false
+        props.queryData.notificationData.totalItems &&
+        props.queryData.notificationData.totalItems > props.pageSize
+      ? true
+      : false
 
   const { inProgressData, notificationData } = queryData
   const paginationId =
@@ -479,9 +480,9 @@ function InProgressComponent(props: IRegistrarHomeProps) {
       : transformRemoteDraftsContent(notificationData).length <= 0
 
   const noResultMessage =
-    !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? intl.formatMessage(wqMessages.noRecordsFieldAgents)
-      : intl.formatMessage(wqMessages.noRecordsHealthSystem)
+    // !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
+    //   ? intl.formatMessage(wqMessages.noRecordsFieldAgents)
+    intl.formatMessage(wqMessages.noRecordsHealthSystem)
 
   const tabs = getTabs(
     selectorId,

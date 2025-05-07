@@ -10,15 +10,16 @@
  */
 
 import React from 'react'
-import { defineMessages } from 'react-intl'
 import { useNavigate } from 'react-router-dom'
 import { v4 as uuid } from 'uuid'
 import { useTypedParams } from 'react-router-typesafe-routes/dom'
+import { useSelector } from 'react-redux'
 import {
   getCurrentEventState,
   ActionType,
-  findActiveActionForm,
-  getMetadataForAction
+  getActionAnnotation,
+  getDeclaration,
+  getActionReview
 } from '@opencrvs/commons/client'
 import { ROUTES } from '@client/v2-events/routes'
 import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents'
@@ -31,41 +32,13 @@ import { useModal } from '@client/v2-events/hooks/useModal'
 import { useEventFormNavigation } from '@client/v2-events/features/events/useEventFormNavigation'
 import { useEventConfiguration } from '@client/v2-events/features/events/useEventConfiguration'
 import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
-import { useEventMetadata } from '@client/v2-events/features/events/useEventMeta'
+import { useActionAnnotation } from '@client/v2-events/features/events/useActionAnnotation'
 import { FormLayout } from '@client/v2-events/layouts'
 import { useDrafts } from '@client/v2-events/features/drafts/useDrafts'
-import { validationErrorsInActionFormExist } from '@client/v2-events/components/forms/validation'
 import { useSaveAndExitModal } from '@client/v2-events/components/SaveAndExitModal'
-
-const messages = defineMessages({
-  validateActionTitle: {
-    id: 'v2.validateAction.title',
-    defaultMessage: 'Send for approval',
-    description: 'The title for validate action'
-  },
-  validateActionDescription: {
-    id: 'v2.validateAction.description',
-    defaultMessage:
-      'The informant will receive an email with a registration number that they can use to collect the certificate',
-    description: 'The description for validate action'
-  },
-  validateActionDeclare: {
-    id: 'v2.validateAction.Declare',
-    defaultMessage: 'Send for approval',
-    description: 'The label for declare button of validate action'
-  },
-  validateActionReject: {
-    id: 'v2.validateAction.Reject',
-    defaultMessage: 'Reject',
-    description: 'The label for reject button of validate action'
-  },
-  validateActionDescriptionIncomplete: {
-    id: 'v2.validateAction.incompleteForm',
-    defaultMessage:
-      'Please add mandatory information before sending for approval',
-    description: 'The description for warning of incomplete form'
-  }
-})
+import { useIntlFormatMessageWithFlattenedParams } from '@client/v2-events/messages/utils'
+import { getScope } from '@client/profile/profileSelectors'
+import { useReviewActionConfig } from './useReviewActionConfig'
 
 /**
  *
@@ -78,34 +51,40 @@ export function Review() {
   const [modal, openModal] = useModal()
   const navigate = useNavigate()
   const { goToHome } = useEventFormNavigation()
-  const validateMutation = events.actions.validate
 
   const [event] = events.getEvent.useSuspenseQuery(eventId)
 
-  const { setMetadata, getMetadata } = useEventMetadata()
+  const { setAnnotation, getAnnotation } = useActionAnnotation()
 
   const { saveAndExitModal, handleSaveAndExit } = useSaveAndExitModal()
 
-  const previousMetadata = getMetadataForAction({
+  const previousAnnotation = getActionAnnotation({
     event,
     actionType: ActionType.VALIDATE,
     drafts: []
   })
 
-  const metadata = getMetadata(previousMetadata)
+  const annotation = getAnnotation(previousAnnotation)
 
   const { eventConfiguration: config } = useEventConfiguration(event.type)
 
-  const formConfig = findActiveActionForm(config, ActionType.VALIDATE)
-  if (!formConfig) {
-    throw new Error(
-      `No active form configuration found for ${ActionType.VALIDATE} action`
-    )
-  }
+  const formConfig = getDeclaration(config)
+  const reviewConfig = getActionReview(config, ActionType.VALIDATE)
+  const { formatMessage } = useIntlFormatMessageWithFlattenedParams()
 
   const getFormValues = useEventFormData((state) => state.getFormValues)
-  const previousFormValues = getCurrentEventState(event).data
+  const previousFormValues = getCurrentEventState(event).declaration
   const form = getFormValues()
+
+  const scopes = useSelector(getScope) ?? undefined
+
+  const reviewActionConfiguration = useReviewActionConfig({
+    formConfig,
+    declaration: form,
+    annotation,
+    scopes,
+    reviewFields: reviewConfig.fields
+  })
 
   async function handleEdit({
     pageId,
@@ -136,18 +115,30 @@ export function Review() {
     return
   }
 
-  async function handleRegistration() {
-    const confirmedRegistration = await openModal<boolean | null>((close) => (
-      <ReviewComponent.ActionModal.Accept action="Validate" close={close} />
-    ))
-    if (confirmedRegistration) {
-      validateMutation.mutate({
-        eventId,
-        data: form,
-        transactionId: uuid(),
-        metadata,
-        duplicates: []
-      })
+  async function handleValidation() {
+    const confirmedValidation = await openModal<boolean | null>((close) => {
+      if (reviewActionConfiguration.messages.modal === undefined) {
+        // eslint-disable-next-line no-console
+        console.error(
+          'Tried to render validate modal without message definitions.'
+        )
+        return null
+      }
+
+      return (
+        <ReviewComponent.ActionModal.Accept
+          action="Validate"
+          close={close}
+          copy={{
+            ...reviewActionConfiguration.messages.modal,
+            eventLabel: config.label
+          }}
+        />
+      )
+    })
+
+    if (confirmedValidation) {
+      reviewActionConfiguration.onConfirm(eventId)
 
       goToHome()
     }
@@ -163,30 +154,24 @@ export function Review() {
       if (rejectAction === REJECT_ACTIONS.SEND_FOR_UPDATE) {
         events.actions.reject.mutate({
           eventId,
-          data: {},
+          declaration: {},
           transactionId: uuid(),
-          metadata: { message }
+          annotation: { message }
         })
       }
 
       if (rejectAction === REJECT_ACTIONS.ARCHIVE) {
         events.actions.archive.mutate({
           eventId,
-          data: {},
+          declaration: {},
           transactionId: uuid(),
-          metadata: { message, isDuplicate }
+          annotation: { message, isDuplicate }
         })
       }
 
       goToHome()
     }
   }
-
-  const hasValidationErrors = validationErrorsInActionFormExist(
-    formConfig,
-    form,
-    metadata
-  )
 
   return (
     <FormLayout
@@ -199,27 +184,20 @@ export function Review() {
       }
     >
       <ReviewComponent.Body
-        eventConfig={config}
+        annotation={annotation}
         form={form}
         formConfig={formConfig}
-        metadata={metadata}
         previousFormValues={previousFormValues}
-        title=""
+        reviewFields={reviewConfig.fields}
+        title={formatMessage(reviewConfig.title, form)}
+        onAnnotationChange={(values) => setAnnotation(values)}
         onEdit={handleEdit}
-        onMetadataChange={(values) => setMetadata(values)}
       >
         <ReviewComponent.Actions
-          isPrimaryActionDisabled={hasValidationErrors}
-          messages={{
-            title: messages.validateActionTitle,
-            description: hasValidationErrors
-              ? messages.validateActionDescriptionIncomplete
-              : messages.validateActionDescription,
-            onConfirm: messages.validateActionDeclare,
-            onReject: messages.validateActionReject
-          }}
-          primaryButtonType={'positive'}
-          onConfirm={handleRegistration}
+          incomplete={reviewActionConfiguration.incomplete}
+          messages={reviewActionConfiguration.messages}
+          primaryButtonType={reviewActionConfiguration.buttonType}
+          onConfirm={handleValidation}
           onReject={handleRejection}
         />
         {modal}

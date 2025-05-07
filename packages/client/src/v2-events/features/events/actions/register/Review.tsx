@@ -17,8 +17,9 @@ import { useTypedParams } from 'react-router-typesafe-routes/dom'
 import {
   getCurrentEventState,
   ActionType,
-  findActiveActionForm,
-  getMetadataForAction
+  getActionAnnotation,
+  getDeclaration,
+  getActionReview
 } from '@opencrvs/commons/client'
 import { ROUTES } from '@client/v2-events/routes'
 import { useEvents } from '@client/v2-events/features/events/useEvents/useEvents'
@@ -31,41 +32,19 @@ import { useModal } from '@client/v2-events/hooks/useModal'
 import { useEventFormNavigation } from '@client/v2-events/features/events/useEventFormNavigation'
 import { useEventConfiguration } from '@client/v2-events/features/events/useEventConfiguration'
 import { useEventFormData } from '@client/v2-events/features/events/useEventFormData'
-import { useEventMetadata } from '@client/v2-events/features/events/useEventMeta'
+import { useActionAnnotation } from '@client/v2-events/features/events/useActionAnnotation'
 import { FormLayout } from '@client/v2-events/layouts'
 import { useDrafts } from '@client/v2-events/features/drafts/useDrafts'
 import { validationErrorsInActionFormExist } from '@client/v2-events/components/forms/validation'
 import { useSaveAndExitModal } from '@client/v2-events/components/SaveAndExitModal'
+import { useIntlFormatMessageWithFlattenedParams } from '@client/v2-events/messages/utils'
+import { reviewMessages } from '../messages'
 
-const messages = defineMessages({
-  registerActionTitle: {
-    id: 'v2.registerAction.title',
-    defaultMessage: 'Register member',
-    description: 'The title for register action'
-  },
-  registerActionDescription: {
-    id: 'v2.registerAction.description',
-    defaultMessage:
-      'By clicking register, you confirm that the information entered is correct and the member can be registered.',
-    description: 'The description for register action'
-  },
-  registerActionDeclare: {
-    id: 'v2.registerAction.Declare',
-    defaultMessage: 'Register',
-    description: 'The label for declare button of register action'
-  },
-  registerActionReject: {
-    id: 'v2.registerAction.Reject',
-    defaultMessage: 'Reject',
-    description: 'The label for reject button of register action'
-  },
-  registerActionDescriptionIncomplete: {
-    id: 'v2.registerAction.incompleteForm',
-    defaultMessage:
-      'Please add mandatory information correctly before registering.',
-    description: 'The label for warning of incomplete form'
-  }
-})
+function getTranslations(hasErrors: boolean) {
+  const state = hasErrors ? 'incomplete' : ('complete' as const)
+
+  return reviewMessages[state].register
+}
 
 /**
  *
@@ -79,30 +58,38 @@ export function Review() {
   const navigate = useNavigate()
   const { goToHome } = useEventFormNavigation()
   const { saveAndExitModal, handleSaveAndExit } = useSaveAndExitModal()
+  const { formatMessage } = useIntlFormatMessageWithFlattenedParams()
 
   const registerMutation = events.actions.register
 
   const [event] = events.getEvent.useSuspenseQuery(eventId)
 
-  const previousMetadata = getMetadataForAction({
+  const previousAnnotation = getActionAnnotation({
     event,
     actionType: ActionType.REGISTER,
     drafts: []
   })
 
-  const { setMetadata, getMetadata } = useEventMetadata()
-  const metadata = getMetadata(previousMetadata)
+  const { setAnnotation, getAnnotation } = useActionAnnotation()
+  const annotation = getAnnotation(previousAnnotation)
 
   const { eventConfiguration: config } = useEventConfiguration(event.type)
 
-  const formConfig = findActiveActionForm(config, ActionType.REGISTER)
-  if (!formConfig) {
-    throw new Error('No active form configuration found for declare action')
-  }
+  const formConfig = getDeclaration(config)
+  const reviewConfig = getActionReview(config, ActionType.REGISTER)
 
   const getFormValues = useEventFormData((state) => state.getFormValues)
-  const previousFormValues = getCurrentEventState(event).data
+  const previousFormValues = getCurrentEventState(event).declaration
   const form = getFormValues()
+
+  const incomplete = validationErrorsInActionFormExist({
+    formConfig,
+    form,
+    annotation,
+    reviewFields: reviewConfig.fields
+  })
+
+  const messages = getTranslations(incomplete)
 
   async function handleEdit({
     pageId,
@@ -134,15 +121,29 @@ export function Review() {
   }
 
   async function handleRegistration() {
-    const confirmedRegistration = await openModal<boolean | null>((close) => (
-      <ReviewComponent.ActionModal.Accept action="Register" close={close} />
-    ))
+    const confirmedRegistration = await openModal<boolean | null>((close) => {
+      if (messages.modal === undefined) {
+        // eslint-disable-next-line no-console
+        console.error(
+          'Tried to render register modal without message definitions.'
+        )
+        return
+      }
+
+      return (
+        <ReviewComponent.ActionModal.Accept
+          action="Register"
+          close={close}
+          copy={{ ...messages.modal, eventLabel: config.label }}
+        />
+      )
+    })
     if (confirmedRegistration) {
       registerMutation.mutate({
         eventId,
-        data: form,
+        declaration: form,
         transactionId: uuid(),
-        metadata
+        annotation
       })
 
       goToHome()
@@ -159,30 +160,24 @@ export function Review() {
       if (rejectAction === REJECT_ACTIONS.SEND_FOR_UPDATE) {
         events.actions.reject.mutate({
           eventId,
-          data: {},
+          declaration: {},
           transactionId: uuid(),
-          metadata: { message }
+          annotation: { message }
         })
       }
 
       if (rejectAction === REJECT_ACTIONS.ARCHIVE) {
         events.actions.archive.mutate({
           eventId,
-          data: {},
+          declaration: {},
           transactionId: uuid(),
-          metadata: { message, isDuplicate }
+          annotation: { message, isDuplicate }
         })
       }
 
       goToHome()
     }
   }
-
-  const hasValidationErrors = validationErrorsInActionFormExist(
-    formConfig,
-    form,
-    metadata
-  )
 
   return (
     <FormLayout
@@ -195,25 +190,18 @@ export function Review() {
       }
     >
       <ReviewComponent.Body
-        eventConfig={config}
+        annotation={annotation}
         form={form}
         formConfig={formConfig}
-        metadata={metadata}
         previousFormValues={previousFormValues}
-        title=""
+        reviewFields={reviewConfig.fields}
+        title={formatMessage(reviewConfig.title, form)}
+        onAnnotationChange={(values) => setAnnotation(values)}
         onEdit={handleEdit}
-        onMetadataChange={(values) => setMetadata(values)}
       >
         <ReviewComponent.Actions
-          isPrimaryActionDisabled={hasValidationErrors}
-          messages={{
-            title: messages.registerActionTitle,
-            description: hasValidationErrors
-              ? messages.registerActionDescriptionIncomplete
-              : messages.registerActionDescription,
-            onConfirm: messages.registerActionDeclare,
-            onReject: messages.registerActionReject
-          }}
+          incomplete={incomplete}
+          messages={messages}
           primaryButtonType="positive"
           onConfirm={handleRegistration}
           onReject={handleRejection}
