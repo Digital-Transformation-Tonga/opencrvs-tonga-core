@@ -26,3 +26,4 @@ export type RecordEvent =
   | 'downloaded'
   | 'assigned'
   | 'unassigned'
+  | 'correction-made'
