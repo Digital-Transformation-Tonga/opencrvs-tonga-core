@@ -178,10 +178,23 @@ class VerifyCollectorComponent extends React.Component<IFullProps> {
     const isExactDobUnknownForIdVerifier =
       !!declaration?.data[collector]?.exactDateOfBirthUnknown
 
-    const birthDate =
+    let birthDate =
       fields.birthDateField && !isExactDobUnknownForIdVerifier
         ? (info[fields.birthDateField] as string)
         : ''
+
+    if (declaration?.event === 'death' && collector === 'informant') {
+      const deathEventInformantType = (
+        declaration!.data['informant']['informantType'] as string
+      ).toLowerCase()
+
+      if (deathEventInformantType === 'mother') {
+        birthDate = declaration!.data['mother']['motherBirthDate'] as string
+      }
+      if (deathEventInformantType === 'father') {
+        birthDate = declaration!.data['father']['fatherBirthDate'] as string
+      }
+    }
 
     const age = isExactDobUnknownForIdVerifier
       ? (info[fields.ageOfPerson as string] as string)

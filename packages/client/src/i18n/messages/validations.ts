@@ -24,6 +24,7 @@ interface IValidationMessages
   officeMustBeSelected: MessageDescriptor
   greaterThanZero: MessageDescriptor
   isValidBirthDate: MessageDescriptor
+  isValidAgeGap: MessageDescriptor
   isValidDateOfDeath: MessageDescriptor
   isDateNotBeforeBirth: MessageDescriptor
   isDateNotAfterDeath: MessageDescriptor
@@ -124,6 +125,11 @@ const messagesToDefine: IValidationMessages = {
     description:
       'The error message appears when the given birth date is not valid',
     id: 'validations.isValidBirthDate'
+  },
+  isValidAgeGap: {
+    defaultMessage: 'Invalid age gap between the person & the parent',
+    description: 'The error message appears when the age gap is not valid',
+    id: 'validations.isValidAgeGap'
   },
   isValidDateOfDeath: {
     defaultMessage: 'Must be a valid date of death',
