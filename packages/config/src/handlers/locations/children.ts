@@ -27,6 +27,7 @@ export const resolveChildren: ServerRoute['handler'] = async (req) => {
   }
 
   const children = await resolveLocationChildren(locationId, type)
+  console.log('____________QueryResult', JSON.stringify(children))
 
   return [location, ...children]
 }
