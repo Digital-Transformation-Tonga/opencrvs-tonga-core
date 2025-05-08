@@ -68,7 +68,7 @@ export const resolveLocationChildren = async (
 
   try {
     console.log('______________Query', JSON.stringify(childQuery), '_______')
-    const db = client.db()
+    const db = await client.db()
 
     const result = await db
       .collection<Location>('Location_view_with_plain_ids')
