@@ -22,7 +22,6 @@ export const resolveLocationChildren = async (
   id: UUID,
   type: string | undefined
 ) => {
-  const db = client.db()
 
   const childQuery = [
     {
@@ -69,6 +68,8 @@ export const resolveLocationChildren = async (
 
   try {
     console.log('______________Query', JSON.stringify(childQuery), '_______')
+    const db = client.db()
+
     const result = await db
       .collection<Location>('Location_view_with_plain_ids')
       .aggregate(childQuery)
