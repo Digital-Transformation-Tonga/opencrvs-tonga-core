@@ -119,7 +119,7 @@ export const fetchLocationChildren = async (id: UUID, type?: LocationType) => {
       `Couldn't fetch the children of a location from config: ${await response.text()}`
     )
   }
-
+  console.log('________fetchLocationChildrenResponse', JSON.stringify(response))
   return response.json() as Promise<SavedLocation[]>
 }
 
@@ -132,5 +132,6 @@ export const fetchLocationChildrenIds = async (
     id.replace('Location/', '') as UUID,
     typeFilter
   )
+  console.log('______________locationsFromchildIds', locations)
   return locations.map(({ id }) => `Location/${id}`)
 }

@@ -68,6 +68,7 @@ export const resolveLocationChildren = async (
   ]
 
   try {
+    console.log('______________Query', JSON.stringify(childQuery), '_______')
     const result = await db
       .collection<Location>('Location_view_with_plain_ids')
       .aggregate(childQuery)
@@ -75,6 +76,7 @@ export const resolveLocationChildren = async (
 
     return result.length ? result[0].children : []
   } catch (error) {
+    console.log('***************', error, '*********')
     logger.error(error)
     throw error
   }
