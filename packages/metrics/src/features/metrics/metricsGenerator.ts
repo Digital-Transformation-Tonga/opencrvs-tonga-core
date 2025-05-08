@@ -1055,7 +1055,6 @@ export async function getTotalMetricsByLocation(
     event === EVENT_TYPE.BIRTH ? 'birth_registration' : 'death_registration'
   const column = event === EVENT_TYPE.BIRTH ? 'ageInDays' : 'deathDays'
   const locationIds = await fetchLocationChildrenIds(locationId, 'CRVS_OFFICE')
-  console.log('________________AlllocationIds', locationIds)
   const batchquery = async (locationIds: string[]) => {
     const [officeLocationInChildren, locationPlaceholders] = helpers.in(
       locationIds,

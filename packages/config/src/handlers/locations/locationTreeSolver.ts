@@ -22,7 +22,6 @@ export const resolveLocationChildren = async (
   id: UUID,
   type: string | undefined
 ) => {
-
   const childQuery = [
     {
       $match: { id: id }
@@ -67,7 +66,6 @@ export const resolveLocationChildren = async (
   ]
 
   try {
-    console.log('______________Query', JSON.stringify(childQuery), '_______')
     const db = await client.db()
 
     const result = await db
@@ -77,7 +75,6 @@ export const resolveLocationChildren = async (
 
     return result.length ? result[0].children : []
   } catch (error) {
-    console.log('***************', error, '*********')
     logger.error(error)
     throw error
   }
