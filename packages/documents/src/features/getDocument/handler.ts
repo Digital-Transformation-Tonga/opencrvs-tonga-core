@@ -24,11 +24,13 @@ export function createPreSignedUrl(
   ) as {
     fileUri: string
   }
-
+  console.log('____________payload', payload.fileUri)
   try {
     const presignedURL = signFileUrl(payload.fileUri)
+    console.log('______________presignedURL', presignedURL)
     return h.response({ presignedURL }).code(200)
   } catch (error) {
+    console.log('______________error', error)
     return h.response(error).code(400)
   }
 }
