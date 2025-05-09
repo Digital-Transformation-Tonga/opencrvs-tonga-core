@@ -285,37 +285,6 @@ export function RegistrationsReport({
         label={
           selectedEvent === 'BIRTH' ? (
             <PerformanceTitle>
-              {intl.formatMessage(messages.performanceHomeBirth)}
-            </PerformanceTitle>
-          ) : (
-            <PerformanceTitle>
-              {intl.formatMessage(messages.performanceHomeDeath)}
-            </PerformanceTitle>
-          )
-        }
-        value={
-          <div>
-            <PerformanceValue>
-              {
-                <TotalDisplayWithPercentage
-                  total={calculateTotal(
-                    data.results.filter((x) =>
-                      ['DECEASED_USUAL_RESIDENCE', 'PRIVATE_HOME'].includes(
-                        x.eventLocationType
-                      )
-                    )
-                  )}
-                  ofNumber={calculateTotal(data.results)}
-                />
-              }
-            </PerformanceValue>
-          </div>
-        }
-      />
-      <ListViewItemSimplified
-        label={
-          selectedEvent === 'BIRTH' ? (
-            <PerformanceTitle>
               {intl.formatMessage(messages.performanceHealthFacilityBirth)}
             </PerformanceTitle>
           ) : (
