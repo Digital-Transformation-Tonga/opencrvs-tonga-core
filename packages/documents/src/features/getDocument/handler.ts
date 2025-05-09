@@ -18,14 +18,16 @@ export function createPreSignedUrl(
   request: Hapi.Request,
   h: Hapi.ResponseToolkit
 ) {
-  const fileUri = request.params.fileUri
-  const payload = (
-    fileUri ? { fileUri: `/${MINIO_BUCKET}/${fileUri}` } : request.payload
-  ) as {
-    fileUri: string
-  }
-  console.log('___________payload', payload.fileUri)
   try {
+    console.log('___________request', request)
+    const fileUri = request.params.fileUri
+    console.log('___________fileUri', fileUri)
+    const payload = (
+      fileUri ? { fileUri: `/${MINIO_BUCKET}/${fileUri}` } : request.payload
+    ) as {
+      fileUri: string
+    }
+    console.log('___________payloadFileURL', payload.fileUri)
     const presignedURL = signFileUrl(payload.fileUri)
     console.log('___________presignedURL', presignedURL)
     return h.response({ presignedURL }).code(200)
