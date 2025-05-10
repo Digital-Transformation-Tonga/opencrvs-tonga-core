@@ -195,8 +195,8 @@ function getDeclarationIconColor(declaration: IDeclaration): string {
   return declaration.submissionStatus === SUBMISSION_STATUS.DRAFT
     ? 'purple'
     : declaration.registrationStatus
-      ? STATUSTOCOLOR[declaration.registrationStatus]
-      : 'orange'
+    ? STATUSTOCOLOR[declaration.registrationStatus]
+    : 'orange'
 }
 
 export const DeleteModal: React.FC<{
@@ -281,7 +281,7 @@ function FormAppBar({
       case 'DRAFT':
         return WORKQUEUE_TABS.myDrafts
       case 'IN_PROGRESS':
-        return WORKQUEUE_TABS.inProgressFieldAgent
+        return WORKQUEUE_TABS.inProgressHealthSystem
       case 'REJECTED':
         return WORKQUEUE_TABS.requiresUpdate
       case 'VALIDATED':
@@ -1002,7 +1002,7 @@ class RegisterFormView extends React.Component<FullProps, State> {
       case 'DRAFT':
         return WORKQUEUE_TABS.myDrafts
       case 'IN_PROGRESS':
-        return WORKQUEUE_TABS.inProgressFieldAgent
+        return WORKQUEUE_TABS.inProgressHealthSystem
       case 'REJECTED':
         return WORKQUEUE_TABS.requiresUpdate
       case 'VALIDATED':
