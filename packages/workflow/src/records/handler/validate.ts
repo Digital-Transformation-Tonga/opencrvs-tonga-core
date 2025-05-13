@@ -20,6 +20,10 @@ import { getRecordSpecificToken } from '@workflow/records/token-exchange'
 import { getComposition } from '@opencrvs/commons/types'
 import { notifyForAction } from '@workflow/utils/country-config-api'
 import { getEventType } from '@workflow/features/registration/utils'
+import {
+  isNotificationEnabled,
+  sendNotification
+} from '@workflow/records/notification'
 
 export const validateRoute = createRoute({
   method: 'POST',
@@ -47,6 +51,17 @@ export const validateRoute = createRoute({
 
     await indexBundle(validatedRecord, token)
     await auditEvent('sent-for-approval', validatedRecord, token)
+
+    if (
+      await isNotificationEnabled(
+        'sent-for-approval',
+        getEventType(validatedRecord),
+        token
+      )
+    ) {
+      await sendNotification('sent-for-approval', validatedRecord, token)
+    }
+
     /*
      * Notify country configuration about the event so that countries can hook into actions like "sent-for-approval"
      */
