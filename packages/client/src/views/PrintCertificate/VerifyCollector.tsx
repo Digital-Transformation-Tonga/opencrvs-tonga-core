@@ -183,6 +183,19 @@ class VerifyCollectorComponent extends React.Component<IFullProps> {
         ? (info[fields.birthDateField] as string)
         : ''
 
+    if (declaration?.event === 'birth' && collector === 'informant') {
+      const birthEventInformantType = (
+        declaration!.data['informant']['informantType'] as string
+      ).toLowerCase()
+
+      if (birthEventInformantType === 'mother') {
+        birthDate = declaration!.data['mother']['motherBirthDate'] as string
+      }
+      if (birthEventInformantType === 'father') {
+        birthDate = declaration!.data['father']['fatherBirthDate'] as string
+      }
+    }
+
     if (declaration?.event === 'death' && collector === 'informant') {
       const deathEventInformantType = (
         declaration!.data['informant']['informantType'] as string
