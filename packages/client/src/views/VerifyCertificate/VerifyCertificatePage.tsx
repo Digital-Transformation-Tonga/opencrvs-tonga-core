@@ -216,19 +216,27 @@ export function VerifyCertificatePage() {
 
   const getFullName = (data: RegistrationToBeVerified) => {
     if (isBirthRegistration(data)) {
-      return (
-        data.child?.name?.[0]?.firstNames +
-        ' ' +
+      return [
+        data.child?.name?.[0]?.firstNames,
+        data.child?.name?.[0]?.middleName,
         data.child?.name?.[0]?.familyName
-      )
+      ]
+        .filter(
+          (part) => part !== undefined && part !== null && part.trim() !== ''
+        )
+        .join(' ')
     }
 
     if (isDeathRegistration(data)) {
-      return (
-        data.deceased?.name?.[0]?.firstNames +
-        ' ' +
+      return [
+        data.deceased?.name?.[0]?.firstNames,
+        data.deceased?.name?.[0]?.middleName,
         data.deceased?.name?.[0]?.familyName
-      )
+      ]
+        .filter(
+          (part) => part !== undefined && part !== null && part.trim() !== ''
+        )
+        .join(' ')
     }
   }
 

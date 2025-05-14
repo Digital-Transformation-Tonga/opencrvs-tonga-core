@@ -104,6 +104,10 @@ export const getUserRoleFromHistory = (
     )
   })
 
+  /*
+   * Find the the first history entry that was added before the
+   * given point in time or take the earliest entry if none found
+   */
   const result =
     practitionerRoleHistorySorted.find(
       (it) =>

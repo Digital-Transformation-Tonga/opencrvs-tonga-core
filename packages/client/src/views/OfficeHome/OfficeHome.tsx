@@ -221,7 +221,7 @@ class OfficeHomeView extends React.Component<
             tabId: WORKQUEUE_TABS.inProgress,
             selectorId: Object.values(SELECTOR_ID).includes(selectorId)
               ? selectorId
-              : SELECTOR_ID.fieldAgentDrafts,
+              : SELECTOR_ID.hospitalDrafts,
             pageId: newPageNumber
           })
         )
