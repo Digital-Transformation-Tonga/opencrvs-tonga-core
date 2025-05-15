@@ -18,6 +18,7 @@ type EventNotificationFlags = {
   'sent-for-approval'?: boolean
   registered?: boolean
   'sent-for-updates'?: boolean
+  'correction-made'?: boolean
 }
 
 type NotificationFlags = {
