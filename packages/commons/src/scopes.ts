@@ -139,4 +139,78 @@ export const SCOPES = {
 
 export type Scope = (typeof SCOPES)[keyof typeof SCOPES]
 
+const rawConfigurableScopeRegex =
+  /^([a-zA-Z]+\.[a-zA-Z]+)\[((?:\w+=\w+(?:\|\w+)*)(:?,\w+=\w+(?:\|\w+)*)*)\]$/
+
+const rawConfigurableScope = z.string().regex(rawConfigurableScopeRegex)
+
+const CreateUserScope = z.object({
+  type: z.literal('user.create'),
+  options: z.object({
+    role: z.array(z.string())
+  })
+})
+
+const EditUserScope = z.object({
+  type: z.literal('user.edit'),
+  options: z.object({
+    role: z.array(z.string())
+  })
+})
+
+const ConfigurableScopes = z.discriminatedUnion('type', [
+  CreateUserScope,
+  EditUserScope
+])
+
+type ConfigurableScopes = z.infer<typeof ConfigurableScopes>
+
+export function findScope(
+  scopes: string[],
+  scopeType: ConfigurableScopes['type']
+) {
+  return scopes
+    .map((rawScope) => parseScope(rawScope))
+    .find(
+      (parsedScope): parsedScope is ConfigurableScopes =>
+        parsedScope?.type === scopeType
+    )
+}
+
+export function parseScope(scope: string) {
+  const maybeLiteralScope = LiteralScopes.safeParse(scope)
+  if (maybeLiteralScope.success) {
+    return {
+      type: maybeLiteralScope.data
+    }
+  }
+  const maybeConfigurableScope = rawConfigurableScope.safeParse(scope)
+  if (maybeConfigurableScope.success) {
+    const rawScope = maybeConfigurableScope.data
+    const [, type, rawOptions] = rawScope.match(rawConfigurableScopeRegex) ?? []
+    const options = rawOptions.split(',').reduce(
+      (acc, option) => {
+        const [key, value] = option.split('=')
+        acc[key] = value.split('|')
+        return acc
+      },
+      {} as Record<string, string[]>
+    )
+    const parsedScope = {
+      type,
+      options
+    }
+    const result = ConfigurableScopes.safeParse(parsedScope)
+    if (result.success) {
+      return result.data
+    }
+  }
+  return undefined
+}
+
+/*
+ * @deprecated
+ * scopes are configurable so all possible
+ * values can't be retrieved anymore
+ */
 export const scopes: Scope[] = Object.values(SCOPES)
