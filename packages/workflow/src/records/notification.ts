@@ -23,6 +23,7 @@ type NotificationEvent = Extract<
   | 'registered'
   | 'sent-for-approval'
   | 'sent-for-updates'
+  | 'correction-made'
 >
 
 export async function sendNotification(

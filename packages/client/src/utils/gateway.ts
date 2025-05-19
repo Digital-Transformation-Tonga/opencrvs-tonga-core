@@ -7609,6 +7609,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             __typename?: 'HumanName'
             firstNames?: string | null
             familyName?: string | null
+            middleName?: string | null
           } | null> | null
         } | null
         eventLocation?: {
@@ -7669,6 +7670,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             __typename?: 'HumanName'
             firstNames?: string | null
             familyName?: string | null
+            middleName?: string | null
           } | null> | null
           deceased?: {
             __typename?: 'Deceased'

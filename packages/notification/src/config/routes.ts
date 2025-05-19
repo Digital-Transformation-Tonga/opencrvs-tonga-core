@@ -48,6 +48,10 @@ import {
   deathSentForUpdatesNotification
 } from '@notification/features/sentForUpdates/handler'
 import { SCOPES } from '@opencrvs/commons/authentication'
+import {
+  birthCorrectionMadeNotification,
+  deathCorrectionMadeNotification
+} from '@notification/features/correctionMade/handler'
 
 const recordValidation: RouteOptionsValidate = {
   payload: Joi.object()
@@ -168,6 +172,28 @@ export default function getRoutes(): ServerRoute<ReqRefDefaults>[] {
         tags: ['api'],
         description:
           'Sends a notification to country config for death register declaration',
+        validate: recordValidation
+      }
+    },
+    {
+      method: 'POST',
+      path: '/birth/correction-made',
+      handler: birthCorrectionMadeNotification,
+      options: {
+        tags: ['api'],
+        description:
+          'Sends a notification to country config for birth correction declaration',
+        validate: recordValidation
+      }
+    },
+    {
+      method: 'POST',
+      path: '/death/correction-made',
+      handler: deathCorrectionMadeNotification,
+      options: {
+        tags: ['api'],
+        description:
+          'Sends a notification to country config for death correction declaration',
         validate: recordValidation
       }
     },
