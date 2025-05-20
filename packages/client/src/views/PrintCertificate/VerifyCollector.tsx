@@ -172,8 +172,8 @@ class VerifyCollectorComponent extends React.Component<IFullProps> {
       fields.nameFields[intl.locale] || fields.nameFields[intl.defaultLocale]
     ).familyNameField
 
-    const firstNames = info[firstNameIndex] as string
-    const familyName = info[familyNameIndex] as string
+    let firstNames = info[firstNameIndex] as string
+    let familyName = info[familyNameIndex] as string
 
     const isExactDobUnknownForIdVerifier =
       !!declaration?.data[collector]?.exactDateOfBirthUnknown
@@ -203,9 +203,24 @@ class VerifyCollectorComponent extends React.Component<IFullProps> {
 
       if (deathEventInformantType === 'mother') {
         birthDate = declaration!.data['mother']['motherBirthDate'] as string
+        firstNames = !firstNames
+          ? (declaration!.data['mother'][firstNameIndex] as string)
+          : firstNames
+        familyName = !familyName
+          ? (declaration!.data['mother'][familyNameIndex] as string)
+          : familyName
       }
       if (deathEventInformantType === 'father') {
         birthDate = declaration!.data['father']['fatherBirthDate'] as string
+        firstNames = !firstNames
+          ? (declaration!.data['father'][firstNameIndex] as string)
+          : firstNames
+        familyName = !familyName
+          ? (declaration!.data['father'][familyNameIndex] as string)
+          : familyName
+      }
+      if (deathEventInformantType === 'spouse') {
+        birthDate = declaration!.data['spouse']['spouseBirthDate'] as string
       }
     }
 
