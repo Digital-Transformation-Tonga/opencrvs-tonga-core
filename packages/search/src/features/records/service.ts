@@ -430,7 +430,6 @@ export const aggregateRecords = ({
       : []),
     { $addFields: { bundle: ['$$ROOT'], composition: '$$ROOT' } },
     { $project: { bundle: 1, composition: 1 } },
-
     ...(includeHistoryResources
       ? [
           // Get CompositionHistory for the composition
@@ -1051,8 +1050,10 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
   const query = aggregateRecords({ recordId, includeHistoryResources })
   const result = await db
     .collection('Composition')
-    .aggregate<Bundle>(query)
+    .aggregate<Bundle>(query, { allowDiskUse: true })
     .toArray()
+
+  console.log(JSON.stringify(query))
 
   const bundle = result[0]
 
@@ -1099,5 +1100,8 @@ export const streamAllRecords = async (includeHistoryResources: boolean) => {
   const connectedClient = await client.connect()
   const db = connectedClient.db()
   const query = aggregateRecords({ includeHistoryResources })
-  return db.collection('Composition').aggregate<Bundle>(query).stream()
+
+  console.log(JSON.stringify(query))
+
+  return db.collection('Composition').aggregate<Bundle>(query, { allowDiskUse: true }).stream()
 }
