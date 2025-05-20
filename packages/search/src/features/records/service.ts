@@ -428,9 +428,8 @@ export const aggregateRecords = ({
           }
         ]
       : []),
-      { $addFields: { bundle: ['$$ROOT'], composition: '$$ROOT' } },
-      { $project: { bundle: 1, composition: 1 } },
-  
+    { $addFields: { bundle: ['$$ROOT'], composition: '$$ROOT' } },
+    { $project: { bundle: 1, composition: 1 } },
     ...(includeHistoryResources
       ? [
           // Get CompositionHistory for the composition
