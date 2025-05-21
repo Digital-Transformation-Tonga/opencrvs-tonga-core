@@ -54,6 +54,9 @@ interface IValidationMessages
   nonDecimalPointNumber: MessageDescriptor
   invalidDate: MessageDescriptor
   isAgeInYearsBetween: MessageDescriptor
+  isFutureDate: MessageDescriptor
+  isBeforeChildBirthDate: MessageDescriptor
+  isBeforeDeceasedDeathDate: MessageDescriptor
 }
 
 const messagesToDefine: IValidationMessages = {
@@ -307,6 +310,24 @@ const messagesToDefine: IValidationMessages = {
     defaultMessage: 'Age must be between {min} and {max} years',
     description:
       'The error message that appears when a date is outside the valid age range'
+  },
+  isFutureDate: {
+    defaultMessage: 'Must not be a future date',
+    description:
+      'The error message appears when the entered date is a future date',
+    id: 'validations.isFutureDate'
+  },
+  isBeforeChildBirthDate: {
+    defaultMessage: 'Must not be a date before child birth date',
+    description:
+      'The error message appears when the date is before child birth date',
+    id: 'validations.isBeforeChildBirthDate'
+  },
+  isBeforeDeceasedDeathDate: {
+    defaultMessage: 'Must not be a date before deceased death date',
+    description:
+      'The error message appears when the date is before deceased death date',
+    id: 'validations.isBeforeDeceasedDeathDate'
   }
 }
 
