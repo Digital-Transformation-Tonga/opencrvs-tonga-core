@@ -22,6 +22,7 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
           name {
             firstNames
             familyName
+            middleName
           }
           birthDate
           gender
@@ -74,6 +75,7 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
           name {
             firstNames
             familyName
+            middleName
           }
           birthDate
           gender

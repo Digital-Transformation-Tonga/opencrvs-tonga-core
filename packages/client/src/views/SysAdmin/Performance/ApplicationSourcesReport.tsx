@@ -90,7 +90,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
             <PerformanceValue>{calculateTotal(data.results)}</PerformanceValue>
           }
         />
-        <ListViewItemSimplified
+        {/* <ListViewItemSimplified
           label={
             <PerformanceTitle>
               {intl.formatMessage(
@@ -130,7 +130,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
               </LinkButton>
             )
           }
-        />
+        /> */}
         <ListViewItemSimplified
           label={
             <PerformanceTitle>
@@ -153,7 +153,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
             </PerformanceValue>
           }
         />
-        <ListViewItemSimplified
+        {/* <ListViewItemSimplified
           label={
             <PerformanceTitle>
               {' '}
@@ -196,7 +196,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
               ></TotalDisplayWithPercentage>
             </PerformanceValue>
           }
-        />
+        /> */}
       </ReportContainer>
     </ListContainer>
   )

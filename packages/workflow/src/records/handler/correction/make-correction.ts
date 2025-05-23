@@ -37,6 +37,10 @@ import { findActiveCorrectionRequest, updateFullUrl } from './utils'
 import { SCOPES } from '@opencrvs/commons/authentication'
 import { getRecordSpecificToken } from '@workflow/records/token-exchange'
 import { notifyForAction } from '@workflow/utils/country-config-api'
+import {
+  isNotificationEnabled,
+  sendNotification
+} from '@workflow/records/notification'
 
 export const makeCorrectionRoute = createRoute({
   method: 'POST',
@@ -135,6 +139,15 @@ export const makeCorrectionRoute = createRoute({
 
     await indexBundleToRoute(unassignedRecord, token, '/events/unassigned')
     await auditEvent('unassigned', unassignedRecord, token)
+
+    const isNotification = await isNotificationEnabled(
+      'correction-made',
+      getEventType(unassignedRecord),
+      token
+    )
+    if (isNotification) {
+      await sendNotification('correction-made', unassignedRecord, token)
+    }
 
     const recordSpecificToken = await getRecordSpecificToken(
       token,

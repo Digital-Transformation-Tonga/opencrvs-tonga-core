@@ -15,7 +15,7 @@ export type IWORKQUEUE_TABS = (typeof WORKQUEUE_TABS)[Keys]
 export const WORKQUEUE_TABS = {
   myDrafts: 'my-drafts',
   inProgress: 'progress',
-  inProgressFieldAgent: 'progress/field-agents',
+  inProgressHealthSystem: 'progress/hospitals',
   sentForReview: 'sentForReview',
   readyForReview: 'readyForReview',
   requiresUpdate: 'requiresUpdate',
