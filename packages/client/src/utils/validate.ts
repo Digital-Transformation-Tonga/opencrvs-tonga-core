@@ -641,6 +641,15 @@ export const englishOnlyNameFormat: Validation = (value: IFormFieldValue) => {
     : { message: messages.englishOnlyNameFormat }
 }
 
+const specialCharactersRegex = /^[^!@#$%^&*()+={}[\]\\|/?<>:;~,]+$/
+
+export const hasSpecialCharacters: Validation = (value: IFormFieldValue) => {
+  const cast = value as string
+  return specialCharactersRegex.test(cast)
+    ? undefined
+    : { message: messages.hasSpecialCharacters }
+}
+
 export const range: RangeValidation =
   (min: number, max: number) => (value: IFormFieldValue) => {
     const cast = value as string

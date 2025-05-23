@@ -54,6 +54,7 @@ interface IValidationMessages
   nonDecimalPointNumber: MessageDescriptor
   invalidDate: MessageDescriptor
   isAgeInYearsBetween: MessageDescriptor
+  hasSpecialCharacters: MessageDescriptor
 }
 
 const messagesToDefine: IValidationMessages = {
@@ -103,6 +104,12 @@ const messagesToDefine: IValidationMessages = {
     description:
       'The error message that appears when a non English character except numbers, hyphens and underscores is used in an English name',
     id: 'validations.englishOnlyNameFormat'
+  },
+  hasSpecialCharacters: {
+    defaultMessage: 'Input cannot contain special characters',
+    description:
+      'The error message that appears when a special character is given as input',
+    id: 'validations.hasSpecialCharacters'
   },
   facilityMustBeSelected: {
     defaultMessage: 'No facility selected',
