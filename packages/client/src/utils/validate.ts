@@ -986,3 +986,35 @@ export const isValidDeaceasedFatherAgeGap = (
 ) => {
   return checkAgeGapInYears(drafts, 'father')
 }
+
+export const validateForeignRegAndGrantDate: Validation = (
+  value: IFormFieldValue,
+  drafts
+) => {
+  if (dateFormatRegex.test(value)) {
+    if (new Date(value) > new Date(Date.now())) {
+      return { message: messages.isFutureDate }
+    }
+    if (
+      drafts.child?.childBirthDate &&
+      dateFormatRegex.test(drafts.child?.childBirthDate)
+    ) {
+      if (new Date(value) < new Date(drafts.child.childBirthDate)) {
+        return {
+          message: messages.isBeforeChildBirthDate
+        }
+      }
+    }
+    if (
+      drafts.deathEvent?.deathDate &&
+      dateFormatRegex.test(drafts.deathEvent?.deathDate)
+    ) {
+      if (new Date(value) < new Date(drafts.deathEvent.deathDate)) {
+        return {
+          message: messages.isBeforeDeceasedDeathDate
+        }
+      }
+    }
+  }
+  return undefined
+}
