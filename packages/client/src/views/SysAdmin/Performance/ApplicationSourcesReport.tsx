@@ -153,7 +153,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
             </PerformanceValue>
           }
         />
-        <ListViewItemSimplified
+        {/* <ListViewItemSimplified
           label={
             <PerformanceTitle>
               {' '}
@@ -196,7 +196,7 @@ function ApplicationSourcesReport(props: ApplicationSourcesProps) {
               ></TotalDisplayWithPercentage>
             </PerformanceValue>
           }
-        />
+        /> */}
       </ReportContainer>
     </ListContainer>
   )
