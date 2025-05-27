@@ -340,7 +340,8 @@ export async function toViewed<T extends ValidRecord>(
           (e) => e.resource.resourceType === 'Task'
         )[0].fullUrl,
         resource: viewedTask
-      }
+      },
+      practitionerRoleEntry
     ]
   }
 
@@ -439,10 +440,13 @@ export async function toDownloaded(
     practitionerDetailsBundle
   ) as ValidRecord
 
-  const downloadedBundleWithResources: Bundle<SavedTask> = {
+  const downloadedBundleWithResources: Bundle<SavedTask | PractitionerRole> = {
     resourceType: 'Bundle',
     type: 'document',
-    entry: [{ resource: downloadedTask }]
+    entry: [
+      { resource: downloadedTask },
+      { resource: practitionerRoleEntry.resource }
+    ]
   }
 
   return { downloadedRecord, downloadedBundleWithResources }

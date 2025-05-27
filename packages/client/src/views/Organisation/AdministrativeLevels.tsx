@@ -77,12 +77,10 @@ export function AdministrativeLevels() {
       }
 
       const childLocations = Object.values(locations)
-        .filter(
-          (s) => s.status === 'active' && s.partOf === `Location/${location}`
-        )
+        .filter((s) => s.partOf === `Location/${location}`)
         .concat(
           Object.values(offices).filter(
-            (s) => s.status === 'active' && s.partOf === `Location/${location}`
+            (s) => s.partOf === `Location/${location}`
           )
         )
 
