@@ -42,6 +42,8 @@ import endOfMonth from 'date-fns/endOfMonth'
 
 const { useState, useEffect, useMemo } = React
 
+const LIMIT_YEAR_PAST_RECORDS = 1800
+
 function getMonthsShort(locale = 'en') {
   const months = []
   for (let i = 0; i < 12; i++) {
@@ -485,6 +487,7 @@ function DateRangePickerComponent(props: IDateRangePickerProps) {
     selectedDate,
     onNavigateDate
   }: MonthSelectorProps) {
+    const limitDate = new Date(LIMIT_YEAR_PAST_RECORDS)
     const year = date.getFullYear().toString()
 
     return (
@@ -499,6 +502,7 @@ function DateRangePickerComponent(props: IDateRangePickerProps) {
             <CircleButton
               id={`${id}-prev`}
               onClick={() => onNavigateDate(subYears(date, 1))}
+              disabled={isSameYear(date, limitDate)}
             >
               <ChevronLeft />
             </CircleButton>

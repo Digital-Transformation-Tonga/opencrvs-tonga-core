@@ -25,23 +25,19 @@ export async function formatSearchParams(
     createdBy = '',
     from = 0,
     size = DEFAULT_SIZE,
-    sortColumn,
+    sortColumn = 'dateOfDeclaration',
     sortBy,
     parameters
   } = searchPayload
 
-  const sort = []
-
-  if (sortBy) {
-    sort.push(...sortBy)
-  } else if (sortColumn) {
-    sort.push({
+  const sort = sortBy ?? [
+    {
       [sortColumn === 'name' ? 'name.keyword' : sortColumn]: {
         order: searchPayload.sort ?? SortOrder.ASC,
         unmapped_type: 'keyword'
       }
-    })
-  }
+    }
+  ]
   const query = await advancedQueryBuilder(
     parameters,
     createdBy,
