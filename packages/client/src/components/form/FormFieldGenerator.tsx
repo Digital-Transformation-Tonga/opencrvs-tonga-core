@@ -92,11 +92,11 @@ import {
   DependencyInfo,
   Ii18nButtonFormField,
   LINK_BUTTON,
+  IDocumentUploaderWithOptionsFormField,
   ID_READER,
   ID_VERIFICATION_BANNER,
-  IDocumentUploaderWithOptionsFormField,
-  ILocationSearchInputFormField,
-  LOADER
+  LOADER,
+  ILocationSearchInputFormField
 } from '@client/forms'
 import { getValidationErrorsForForm, Errors } from '@client/forms/validation'
 import { InputField } from '@client/components/form/InputField'
@@ -493,7 +493,6 @@ const GeneratedInputField = React.memo<GeneratedInputFieldProps>(
         <InputField {...inputFieldProps}>
           <TimeField
             {...inputProps}
-            use12HourFormat={fieldDefinition.use12HourFormat}
             ignorePlaceHolder={fieldDefinition.ignorePlaceHolder}
             onChange={onChangeGroupInput}
             value={value as string}
@@ -1167,29 +1166,7 @@ class FormSectionComponent extends React.Component<Props> {
                             setValues(updatedValues)
                           }
                         } as ILoaderButton)
-                      : field.type === LOCATION_SEARCH_INPUT
-                        ? {
-                            ...field,
-                            locationList: generateLocations(
-                              field.searchableResource.reduce(
-                                (locations, resource) => {
-                                  return {
-                                    ...locations,
-                                    ...getListOfLocations(
-                                      offlineCountryConfig,
-                                      resource
-                                    )
-                                  }
-                                },
-                                {}
-                              ),
-                              intl,
-                              (location) =>
-                                field.searchableType.includes(location.type),
-                              field.userOfficeId
-                            )
-                          }
-                        : field
+                      : field
 
           if (
             field.type === FETCH_BUTTON ||

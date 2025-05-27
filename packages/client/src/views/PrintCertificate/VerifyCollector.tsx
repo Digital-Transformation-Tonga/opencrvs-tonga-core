@@ -145,8 +145,7 @@ class VerifyCollectorComponent extends React.Component<IFullProps> {
       declaration!.data,
       declaration!.id,
       this.props.userDetails,
-      this.props.offlineCountryConfiguration,
-      declaration!.originalData
+      this.props.offlineCountryConfiguration
     )
 
     const informantType =

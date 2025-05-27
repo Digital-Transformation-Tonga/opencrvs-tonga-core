@@ -239,6 +239,10 @@ export const isDateNotInFuture = (date: string) => {
   return new Date(date) <= new Date(Date.now())
 }
 
+export const isDateNotPastLimit = (date: string, limit: Date) => {
+  return new Date(date) >= limit
+}
+
 export const isDateNotBeforeBirth = (date: string, drafts: IFormData) => {
   const birthDate = drafts?.deceased?.birthDate as string
   return birthDate ? new Date(date) >= new Date(birthDate) : true
@@ -303,29 +307,30 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-        isDateNotInFuture(cast) &&
-        isAValidDateFormat(cast) &&
-        isDateNotAfterBirthEvent(cast, drafts as IFormData)
-      ? isDateNotAfterDeath(cast, drafts as IFormData)
-        ? undefined
-        : {
-            message: messages.isDateNotAfterDeath
-          }
+      isDateNotInFuture(cast) &&
+      isAValidDateFormat(cast) &&
+      isDateNotAfterBirthEvent(cast, drafts as IFormData)
+    ? isDateNotAfterDeath(cast, drafts as IFormData)
+      ? undefined
       : {
-          message: messages.isValidBirthDate
+          message: messages.isDateNotAfterDeath
         }
+    : {
+        message: messages.isValidBirthDate
+      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   const childBirthDate = value as string
-
+  const pastDateLimit = new Date(1800, 0, 1)
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-        isAValidDateFormat(childBirthDate) &&
-        isDateNotInFuture(childBirthDate)
-      ? undefined
-      : { message: messages.isValidBirthDate }
+      isAValidDateFormat(childBirthDate) &&
+      isDateNotInFuture(childBirthDate) &&
+      isDateNotPastLimit(childBirthDate, pastDateLimit)
+    ? undefined
+    : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -514,6 +519,17 @@ export const dateNotInFuture = (): Validation => (value: IFormFieldValue) => {
   }
 }
 
+export const dateNotPastLimit =
+  (limit: string): Validation =>
+  (value: IFormFieldValue) => {
+    const cast = value as string
+    if (isDateNotPastLimit(cast, new Date(limit))) {
+      return undefined
+    } else {
+      return { message: messages.dateFormat }
+    }
+  }
+
 export const dateNotToday = (date: string): boolean => {
   const today = new Date().setHours(0, 0, 0, 0)
   const day = new Date(date).setHours(0, 0, 0, 0)
@@ -625,13 +641,15 @@ export const englishOnlyNameFormat: Validation = (value: IFormFieldValue) => {
     : { message: messages.englishOnlyNameFormat }
 }
 
-const specialCharactersRegex = /^[^!@#$%^&*()+={}[\]\\|/?<>:;~,]+$/
+const specialCharactersRegex = /^[^!@#$%^&*()+={}[\]\\|/?<>:;~,0-9]+$/
 
 export const hasSpecialCharacters: Validation = (value: IFormFieldValue) => {
   const cast = value as string
-  return specialCharactersRegex.test(cast)
-    ? undefined
-    : { message: messages.hasSpecialCharacters }
+  if (value) {
+    return specialCharactersRegex.test(cast)
+      ? undefined
+      : { message: messages.hasSpecialCharacters }
+  }
 }
 
 export const range: RangeValidation =
@@ -759,8 +777,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-      ? undefined
-      : { message: messages.greaterThanZero }
+    ? undefined
+    : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
