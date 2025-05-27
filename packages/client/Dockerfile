@@ -1,5 +1,6 @@
 ARG  BRANCH=develop
-FROM ghcr.io/opencrvs/ocrvs-base:${BRANCH}
+ARG  DOCKER_ORGID=opencrvs
+FROM ${DOCKER_ORGID}/ocrvs-base:${BRANCH}
 
 USER node
 
@@ -9,12 +10,15 @@ COPY --chown=node:node packages/events /app/packages/events
 WORKDIR /app/packages/components
 COPY --chown=node:node packages/components /app/packages/components
 
-RUN yarn install --frozen-lockfile  && yarn build
+RUN yarn install --frozen-lockfile && yarn build
 ENV CONTENT_SECURITY_POLICY_WILDCARD "{{CONTENT_SECURITY_POLICY_WILDCARD}}"
 ENV COUNTRY_CONFIG_URL_INTERNAL "{{COUNTRY_CONFIG_URL_INTERNAL}}"
 ENV GATEWAY_URL_INTERNAL "{{GATEWAY_URL_INTERNAL}}"
+
 WORKDIR /app/packages/client
 COPY --chown=node:node packages/client /app/packages/client
+COPY --chown=node:node patches/ /app/patches/
+
 RUN yarn install --frozen-lockfile && yarn build
 
 FROM nginx:1.27

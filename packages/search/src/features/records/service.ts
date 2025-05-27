@@ -1049,10 +1049,19 @@ export async function getRecordById<T extends Array<keyof StateIdenfitiers>>(
 ): Promise<StateIdenfitiers[T[number]]> {
   const db = client.db()
   const query = aggregateRecords({ recordId, includeHistoryResources })
+
+  console.log(
+    '=====================\n',
+    JSON.stringify(query),
+    '\n====================='
+  )
+
   const result = await db
     .collection('Composition')
-    .aggregate<Bundle>(query)
+    .aggregate<Bundle>(query, { allowDiskUse: true })
     .toArray()
+
+  console.log(JSON.stringify(result))
 
   const bundle = result[0]
 
@@ -1099,5 +1108,11 @@ export const streamAllRecords = async (includeHistoryResources: boolean) => {
   const connectedClient = await client.connect()
   const db = connectedClient.db()
   const query = aggregateRecords({ includeHistoryResources })
-  return db.collection('Composition').aggregate<Bundle>(query).stream()
+
+  console.log(JSON.stringify(query))
+
+  return db
+    .collection('Composition')
+    .aggregate<Bundle>(query, { allowDiskUse: true })
+    .stream()
 }
