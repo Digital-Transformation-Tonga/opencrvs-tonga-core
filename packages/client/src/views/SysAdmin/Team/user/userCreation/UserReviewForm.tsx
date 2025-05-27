@@ -323,8 +323,7 @@ const UserReviewFormComponent = ({
       { user: formData },
       '',
       userDetails,
-      offlineCountryConfiguration,
-      undefined
+      offlineCountryConfiguration
     )
     if (variables.user._fhirID) {
       variables.user.id = variables.user._fhirID
