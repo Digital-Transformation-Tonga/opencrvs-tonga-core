@@ -34,7 +34,8 @@ import {
   Encounter,
   Location,
   findEncounterFromRecord,
-  Saved
+  Saved,
+  findCompositionSection
 } from '@opencrvs/commons/types'
 import {
   getToken,
@@ -186,6 +187,52 @@ async function createRecord(
     token
   )
   const composition = getComposition(inputBundle)
+
+  if (
+    composition?.type?.coding?.[0]?.code &&
+    composition.type.coding[0].code === 'death-declaration'
+  ) {
+    const informantDetailsSection = findCompositionSection(
+      'informant-details',
+      composition
+    )
+    const informantReferenceID = informantDetailsSection?.entry[0]?.reference
+
+    const relatedPersonResource: any = inputBundle.entry.find((item) => {
+      return item.fullUrl === informantReferenceID
+    })
+
+    const informantType =
+      relatedPersonResource?.resource?.relationship?.coding?.[0]?.code
+
+    if (informantType && informantType === 'MOTHER') {
+      const informantDetailsSection = findCompositionSection(
+        'mother-details',
+        composition
+      )
+      const motherReferenceID = informantDetailsSection?.entry?.[0]?.reference
+
+      if (motherReferenceID) {
+        relatedPersonResource.resource.patient = {
+          reference: motherReferenceID
+        }
+      }
+    }
+    if (informantType && informantType === 'FATHER') {
+      const informantDetailsSection = findCompositionSection(
+        'father-details',
+        composition
+      )
+      const fatherReferenceID = informantDetailsSection?.entry?.[0]?.reference
+
+      if (fatherReferenceID) {
+        relatedPersonResource.resource.patient = {
+          reference: fatherReferenceID
+        }
+      }
+    }
+  }
+
   const inProgress = isInProgressDeclaration(inputBundle)
 
   composition.identifier = {

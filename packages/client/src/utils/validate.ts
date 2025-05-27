@@ -307,17 +307,17 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-        isDateNotInFuture(cast) &&
-        isAValidDateFormat(cast) &&
-        isDateNotAfterBirthEvent(cast, drafts as IFormData)
-      ? isDateNotAfterDeath(cast, drafts as IFormData)
-        ? undefined
-        : {
-            message: messages.isDateNotAfterDeath
-          }
+      isDateNotInFuture(cast) &&
+      isAValidDateFormat(cast) &&
+      isDateNotAfterBirthEvent(cast, drafts as IFormData)
+    ? isDateNotAfterDeath(cast, drafts as IFormData)
+      ? undefined
       : {
-          message: messages.isValidBirthDate
+          message: messages.isDateNotAfterDeath
         }
+    : {
+        message: messages.isValidBirthDate
+      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
@@ -326,11 +326,11 @@ export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-        isAValidDateFormat(childBirthDate) &&
-        isDateNotInFuture(childBirthDate) &&
-        isDateNotPastLimit(childBirthDate, pastDateLimit)
-      ? undefined
-      : { message: messages.isValidBirthDate }
+      isAValidDateFormat(childBirthDate) &&
+      isDateNotInFuture(childBirthDate) &&
+      isDateNotPastLimit(childBirthDate, pastDateLimit)
+    ? undefined
+    : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -588,7 +588,7 @@ export const isValidBengaliWord = (value: string): boolean => {
 export const isValidEnglishWord = (value: string): boolean => {
   // Still using XRegExp for its caching ability
   const englishRe = XRegExp.cache(
-    `(^[\\p{Latin}0-9'._-]*\\([\\p{Latin}0-9'._-]+\\)[\\p{Latin}0-9'._-]*$)|(^[\\p{Latin}0-9'._-]+$)`,
+    `(^[\\p{Latin}0-9'.ʻ_-]*\\([\\p{Latin}0-9'.ʻ_-]+\\)[\\p{Latin}0-9'.ʻ_-]*$)|(^[\\p{Latin}0-9'.ʻ_-]+$)`,
     ''
   )
   return englishRe.test(value)
@@ -639,6 +639,15 @@ export const englishOnlyNameFormat: Validation = (value: IFormFieldValue) => {
   return isValidEnglishName(cast)
     ? undefined
     : { message: messages.englishOnlyNameFormat }
+}
+
+const specialCharactersRegex = /^[^!@#$%^&*()+={}[\]\\|/?<>:;~,]+$/
+
+export const hasSpecialCharacters: Validation = (value: IFormFieldValue) => {
+  const cast = value as string
+  return specialCharactersRegex.test(cast)
+    ? undefined
+    : { message: messages.hasSpecialCharacters }
 }
 
 export const range: RangeValidation =
@@ -766,8 +775,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-      ? undefined
-      : { message: messages.greaterThanZero }
+    ? undefined
+    : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
@@ -987,3 +996,34 @@ export const isValidDeaceasedFatherAgeGap = (
   return checkAgeGapInYears(drafts, 'father')
 }
 
+export const validateForeignRegAndGrantDate: Validation = (
+  value: IFormFieldValue,
+  drafts
+) => {
+  if (dateFormatRegex.test(value)) {
+    if (new Date(value) > new Date(Date.now())) {
+      return { message: messages.isFutureDate }
+    }
+    if (
+      drafts.child?.childBirthDate &&
+      dateFormatRegex.test(drafts.child?.childBirthDate)
+    ) {
+      if (new Date(value) < new Date(drafts.child.childBirthDate)) {
+        return {
+          message: messages.isBeforeChildBirthDate
+        }
+      }
+    }
+    if (
+      drafts.deathEvent?.deathDate &&
+      dateFormatRegex.test(drafts.deathEvent?.deathDate)
+    ) {
+      if (new Date(value) < new Date(drafts.deathEvent.deathDate)) {
+        return {
+          message: messages.isBeforeDeceasedDeathDate
+        }
+      }
+    }
+  }
+  return undefined
+}
