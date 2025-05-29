@@ -21,7 +21,7 @@ import Webhook, { IWebhookModel, TRIGGERS } from '@webhooks/model/webhook'
 import { getQueue } from '@webhooks/queue'
 import { Queue } from 'bullmq'
 import fetch from 'node-fetch'
-import * as ShortUIDGen from 'short-uid'
+import ShortUniqueId from 'short-uid'
 import { RegisteredRecord } from '@opencrvs/commons/types'
 
 export interface IAuthHeader {
@@ -107,7 +107,7 @@ export async function birthRegisteredHandler(
               hmac
             },
             {
-              jobId: `WEBHOOK_${new ShortUIDGen().randomUUID().toUpperCase()}_${
+              jobId: `WEBHOOK_${new ShortUniqueId().randomUUID().toUpperCase()}_${
                 webhookToNotify.webhookId
               }`,
               attempts: 3
@@ -204,7 +204,7 @@ export async function deathRegisteredHandler(
               hmac
             },
             {
-              jobId: `WEBHOOK_${new ShortUIDGen().randomUUID().toUpperCase()}_${
+              jobId: `WEBHOOK_${new ShortUniqueId().randomUUID().toUpperCase()}_${
                 webhookToNotify.webhookId
               }`,
               attempts: 3

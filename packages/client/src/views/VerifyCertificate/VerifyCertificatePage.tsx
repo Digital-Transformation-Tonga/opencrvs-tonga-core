@@ -216,19 +216,27 @@ export function VerifyCertificatePage() {
 
   const getFullName = (data: RegistrationToBeVerified) => {
     if (isBirthRegistration(data)) {
-      return (
-        data.child?.name?.[0]?.firstNames +
-        ' ' +
+      return [
+        data.child?.name?.[0]?.firstNames,
+        data.child?.name?.[0]?.middleName,
         data.child?.name?.[0]?.familyName
-      )
+      ]
+        .filter(
+          (part) => part !== undefined && part !== null && part.trim() !== ''
+        )
+        .join(' ')
     }
 
     if (isDeathRegistration(data)) {
-      return (
-        data.deceased?.name?.[0]?.firstNames +
-        ' ' +
+      return [
+        data.deceased?.name?.[0]?.firstNames,
+        data.deceased?.name?.[0]?.middleName,
         data.deceased?.name?.[0]?.familyName
-      )
+      ]
+        .filter(
+          (part) => part !== undefined && part !== null && part.trim() !== ''
+        )
+        .join(' ')
     }
   }
 
@@ -251,6 +259,41 @@ export function VerifyCertificatePage() {
     // find first certified action from history sorted in ascending order by time
     return data.history?.find((item) => item?.regStatus === RegStatus.Certified)
       ?.date
+  }
+
+  const getPlaceofBirthOrDeath = (data: RegistrationToBeVerified) => {
+    const questionnaireData: any = data.questionnaire
+    if (isBirthRegistration(data)) {
+      const placeOfBirthObject = questionnaireData?.find(
+        (item: { fieldId: string; value: string }) =>
+          item.fieldId === 'birth.child.child-view-group.childPlaceOfBirth'
+      )
+      return placeOfBirthObject ? placeOfBirthObject.value : '-'
+    }
+    if (isDeathRegistration(data)) {
+      const placeOfDeathObject = questionnaireData?.find(
+        (item: { fieldId: string; value: string }) =>
+          item.fieldId === 'death.deathEvent.deathEvent-view-group.deathPlace'
+      )
+      return placeOfDeathObject ? placeOfDeathObject.value : '-'
+    }
+    return '-'
+  }
+
+  const getRegistrationCenter = (data: RegistrationToBeVerified) => {
+    let registrationCenter = ''
+    let locationId = ''
+
+    const officeHierarchy = getRegistarData(data).officeHierarchy
+
+    for (const location of officeHierarchy ?? []) {
+      if (registrationCenter && locationId) {
+        break
+      }
+      locationId = location.id
+      registrationCenter = localizeLocation(location)
+    }
+    return { registrationCenter, locationId }
   }
 
   // This function currently supports upto two location levels
@@ -435,7 +478,7 @@ export function VerifyCertificatePage() {
                       }
                       value={
                         <Text variant={'reg16'} element={'span'}>
-                          {getLocation(data)}
+                          {getPlaceofBirthOrDeath(data)}
                         </Text>
                       }
                     />
@@ -453,17 +496,13 @@ export function VerifyCertificatePage() {
                           alignItems="flex-start"
                           gap={0}
                         >
-                          {getRegistarData(data).officeHierarchy?.map(
-                            (location) => (
-                              <Text
-                                key={location.id}
-                                variant="reg16"
-                                element="span"
-                              >
-                                {localizeLocation(location)}
-                              </Text>
-                            )
-                          )}
+                          <Text
+                            key={getRegistrationCenter(data).locationId}
+                            variant="reg16"
+                            element="span"
+                          >
+                            {getRegistrationCenter(data).registrationCenter}
+                          </Text>
                         </Stack>
                       }
                     />

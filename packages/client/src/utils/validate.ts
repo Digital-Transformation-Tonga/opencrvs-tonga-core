@@ -239,6 +239,10 @@ export const isDateNotInFuture = (date: string) => {
   return new Date(date) <= new Date(Date.now())
 }
 
+export const isDateNotPastLimit = (date: string, limit: Date) => {
+  return new Date(date) >= limit
+}
+
 export const isDateNotBeforeBirth = (date: string, drafts: IFormData) => {
   const birthDate = drafts?.deceased?.birthDate as string
   return birthDate ? new Date(date) >= new Date(birthDate) : true
@@ -303,29 +307,30 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-        isDateNotInFuture(cast) &&
-        isAValidDateFormat(cast) &&
-        isDateNotAfterBirthEvent(cast, drafts as IFormData)
-      ? isDateNotAfterDeath(cast, drafts as IFormData)
-        ? undefined
-        : {
-            message: messages.isDateNotAfterDeath
-          }
+      isDateNotInFuture(cast) &&
+      isAValidDateFormat(cast) &&
+      isDateNotAfterBirthEvent(cast, drafts as IFormData)
+    ? isDateNotAfterDeath(cast, drafts as IFormData)
+      ? undefined
       : {
-          message: messages.isValidBirthDate
+          message: messages.isDateNotAfterDeath
         }
+    : {
+        message: messages.isValidBirthDate
+      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   const childBirthDate = value as string
-
+  const pastDateLimit = new Date(1800, 0, 1)
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-        isAValidDateFormat(childBirthDate) &&
-        isDateNotInFuture(childBirthDate)
-      ? undefined
-      : { message: messages.isValidBirthDate }
+      isAValidDateFormat(childBirthDate) &&
+      isDateNotInFuture(childBirthDate) &&
+      isDateNotPastLimit(childBirthDate, pastDateLimit)
+    ? undefined
+    : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -514,6 +519,17 @@ export const dateNotInFuture = (): Validation => (value: IFormFieldValue) => {
   }
 }
 
+export const dateNotPastLimit =
+  (limit: string): Validation =>
+  (value: IFormFieldValue) => {
+    const cast = value as string
+    if (isDateNotPastLimit(cast, new Date(limit))) {
+      return undefined
+    } else {
+      return { message: messages.dateFormat }
+    }
+  }
+
 export const dateNotToday = (date: string): boolean => {
   const today = new Date().setHours(0, 0, 0, 0)
   const day = new Date(date).setHours(0, 0, 0, 0)
@@ -572,7 +588,7 @@ export const isValidBengaliWord = (value: string): boolean => {
 export const isValidEnglishWord = (value: string): boolean => {
   // Still using XRegExp for its caching ability
   const englishRe = XRegExp.cache(
-    `(^[\\p{Latin}0-9'._-]*\\([\\p{Latin}0-9'._-]+\\)[\\p{Latin}0-9'._-]*$)|(^[\\p{Latin}0-9'._-]+$)`,
+    `(^[\\p{Latin}0-9'.ʻ_-]*\\([\\p{Latin}0-9'.ʻ_-]+\\)[\\p{Latin}0-9'.ʻ_-]*$)|(^[\\p{Latin}0-9'.ʻ_-]+$)`,
     ''
   )
   return englishRe.test(value)
@@ -623,6 +639,17 @@ export const englishOnlyNameFormat: Validation = (value: IFormFieldValue) => {
   return isValidEnglishName(cast)
     ? undefined
     : { message: messages.englishOnlyNameFormat }
+}
+
+const specialCharactersRegex = /^[^!@#$%^&*()+={}[\]\\|/?<>:;~,0-9]+$/
+
+export const hasSpecialCharacters: Validation = (value: IFormFieldValue) => {
+  const cast = value as string
+  if (value) {
+    return specialCharactersRegex.test(cast)
+      ? undefined
+      : { message: messages.hasSpecialCharacters }
+  }
 }
 
 export const range: RangeValidation =
@@ -750,8 +777,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-      ? undefined
-      : { message: messages.greaterThanZero }
+    ? undefined
+    : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
@@ -762,3 +789,243 @@ export const notGreaterThan =
       ? undefined
       : { message: messages.notGreaterThan, props: { maxValue } }
   }
+
+export const validateMaxFileSize = (value: IFormFieldValue) => {
+  const maxFileSize = 5 * 1024 * 1024 // 5MB
+
+  if (value) {
+    const base64Value = value.data as string
+    const base64Data = base64Value.split(',')[1] || base64Value
+    const padding = (base64Data.match(/=+$/) || [''])[0].length
+    const binarySizeinBytes = (base64Data.length * 3) / 4 - padding
+
+    if (binarySizeinBytes > maxFileSize) {
+      return {
+        message: {
+          defaultMessage: 'File size must be less than 5MB',
+          description: 'text for error on file size',
+          id: 'validateMaxFileSize'
+        }
+      } satisfies IValidationResult
+    }
+  }
+
+  return undefined
+}
+
+const dateFormatRegex = /^\d{4}-(\d{1,2})-(\d{1,2})$/
+
+const returnAbsoluteMonthDifference = (
+  personBirthDate: any,
+  parentBirthDate: any
+) => {
+  if (
+    dateFormatRegex.test(personBirthDate) &&
+    dateFormatRegex.test(parentBirthDate)
+  ) {
+    const [personBirthyear, personBirthMonth] = personBirthDate
+      .split('-')
+      .map(Number)
+
+    const [parentBirthyear, parentBirthMonth] = parentBirthDate
+      .split('-')
+      .map(Number)
+
+    return Math.abs(
+      personBirthyear * 12 +
+        personBirthMonth -
+        (parentBirthyear * 12 + parentBirthMonth)
+    )
+  }
+}
+
+const checkAgeGapInMonths = (
+  personBirthDate: any,
+  parentBirthDate: any,
+  person: 'child' | 'deceased',
+  parent: 'mother' | 'father'
+) => {
+  const AGE_GAP_BETWEEN_PERSON_AND_PARENT = 144 // 144 months --> 12 years
+
+  if (personBirthDate && parentBirthDate) {
+    const monthDifference = returnAbsoluteMonthDifference(
+      personBirthDate,
+      parentBirthDate
+    )
+
+    if (
+      monthDifference &&
+      monthDifference < AGE_GAP_BETWEEN_PERSON_AND_PARENT
+    ) {
+      return {
+        message: {
+          defaultMessage: `Invalid age gap between the ${person} & the ${parent}`,
+          description:
+            'The error message appears when the age gap between the person & the parent is invalid',
+          id: 'checkAgeGapInMonths'
+        }
+      }
+    }
+  }
+
+  return undefined
+}
+
+export const validateChildMotherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const childBirthDate = drafts.child?.childBirthDate
+    const motherBirthDate = drafts.mother?.motherBirthDate
+
+    return checkAgeGapInMonths(
+      childBirthDate,
+      motherBirthDate,
+      'child',
+      'mother'
+    )
+  }
+  return undefined
+}
+
+export const validateChildFatherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const childBirthDate = drafts.child?.childBirthDate
+    const fatherBirthDate = drafts.father?.fatherBirthDate
+
+    return checkAgeGapInMonths(
+      childBirthDate,
+      fatherBirthDate,
+      'child',
+      'father'
+    )
+  }
+  return undefined
+}
+
+export const validateDeceasedMotherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+    const motherBirthDate = drafts.mother?.motherBirthDate
+
+    return checkAgeGapInMonths(
+      deceasedBirthDate,
+      motherBirthDate,
+      'deceased',
+      'mother'
+    )
+  }
+  return undefined
+}
+
+export const validateDeceasedFatherAgeGap: Validation = (value, drafts) => {
+  if (dateFormatRegex.test(value)) {
+    const deceasedBirthDate = drafts.deceased?.deceasedBirthDate
+    const fatherBirthDate = drafts.father?.fatherBirthDate
+
+    return checkAgeGapInMonths(
+      deceasedBirthDate,
+      fatherBirthDate,
+      'deceased',
+      'father'
+    )
+  }
+  return undefined
+}
+
+export const validateSpouseAndForeignSelection: Validation = (
+  value,
+  drafts
+) => {
+  const maritalStatus = drafts?.deceased?.maritalStatus
+  const foreignDeath = drafts?.deceased?.foreignDeath
+
+  if (value === 'SPOUSE' && maritalStatus !== 'MARRIED') {
+    return {
+      message: {
+        defaultMessage:
+          'Cannot select "Spouse" unless the deceased was married.',
+        description:
+          'Validation error when trying to select SPOUSE but deceased is not marked as married.',
+        id: 'validateSpouseSelection'
+      }
+    }
+  }
+
+  if (value === 'FOREIGN' && foreignDeath !== 'true') {
+    return {
+      message: {
+        defaultMessage:
+          'Cannot select "Foreign Informant" unless the death occurred abroad.',
+        description:
+          'Validation error when trying to select FOREIGN location but foreignDeath is false.',
+        id: 'validateForeignSelection'
+      }
+    }
+  }
+
+  return undefined
+}
+
+const checkAgeGapInYears = (drafts: IFormData, parent: 'mother' | 'father') => {
+  const AGE_GAP = 12 // 12 years
+  const deceasedBirthDate = drafts?.deceased?.ageOfIndividualInYears
+
+  let parentBirthDate = drafts?.mother?.ageOfIndividualInYears
+  if (parent === 'father') {
+    parentBirthDate = drafts?.father?.ageOfIndividualInYears
+  }
+
+  if (deceasedBirthDate) {
+    if (parentBirthDate && parentBirthDate - deceasedBirthDate < AGE_GAP) {
+      return {
+        message: messages.isValidAgeGap
+      }
+    }
+  }
+  return undefined
+}
+
+export const isValidDeaceasedMotherAgeGap: Validation = (
+  value: IFormFieldValue,
+  drafts: IFormData
+) => {
+  return checkAgeGapInYears(drafts, 'mother')
+}
+
+export const isValidDeaceasedFatherAgeGap = (
+  value: IFormFieldValue,
+  drafts: IFormData
+) => {
+  return checkAgeGapInYears(drafts, 'father')
+}
+
+export const validateForeignRegAndGrantDate: Validation = (
+  value: IFormFieldValue,
+  drafts
+) => {
+  if (dateFormatRegex.test(value)) {
+    if (new Date(value) > new Date(Date.now())) {
+      return { message: messages.isFutureDate }
+    }
+    if (
+      drafts.child?.childBirthDate &&
+      dateFormatRegex.test(drafts.child?.childBirthDate)
+    ) {
+      if (new Date(value) < new Date(drafts.child.childBirthDate)) {
+        return {
+          message: messages.isBeforeChildBirthDate
+        }
+      }
+    }
+    if (
+      drafts.deathEvent?.deathDate &&
+      dateFormatRegex.test(drafts.deathEvent?.deathDate)
+    ) {
+      if (new Date(value) < new Date(drafts.deathEvent.deathDate)) {
+        return {
+          message: messages.isBeforeDeceasedDeathDate
+        }
+      }
+    }
+  }
+  return undefined
+}

@@ -7609,6 +7609,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             __typename?: 'HumanName'
             firstNames?: string | null
             familyName?: string | null
+            middleName?: string | null
           } | null> | null
         } | null
         eventLocation?: {
@@ -7626,6 +7627,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             line?: Array<string | null> | null
           } | null
         } | null
+        questionnaire?: Maybe<Maybe<QuestionnaireQuestion>[]> | undefined
         registration?: {
           __typename?: 'Registration'
           trackingId?: string | null
@@ -7668,6 +7670,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             __typename?: 'HumanName'
             firstNames?: string | null
             familyName?: string | null
+            middleName?: string | null
           } | null> | null
           deceased?: {
             __typename?: 'Deceased'
@@ -7688,6 +7691,7 @@ export type FetchRecordDetailsForVerificationQuery = {
             country?: string | null
           } | null
         } | null
+        questionnaire?: Maybe<Maybe<QuestionnaireQuestion>[]> | undefined
         registration?: {
           __typename?: 'Registration'
           trackingId?: string | null

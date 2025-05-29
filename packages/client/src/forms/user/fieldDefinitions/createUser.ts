@@ -84,7 +84,7 @@ function userSectionFormType(): ISerializedFormSection {
             label: userFormMessages.lastName,
             required: true,
             initialValue: '',
-            validator: [{ operation: 'englishOnlyNameFormat' }],
+            validator: [{ operation: 'hasSpecialCharacters' }],
             mapping: {
               mutation: {
                 operation: 'fieldToNameTransformer',
@@ -102,7 +102,7 @@ function userSectionFormType(): ISerializedFormSection {
             label: userFormMessages.firstName,
             required: true,
             initialValue: '',
-            validator: [{ operation: 'englishOnlyNameFormat' }],
+            validator: [{ operation: 'hasSpecialCharacters' }],
             mapping: {
               mutation: {
                 operation: 'fieldToNameTransformer',
@@ -214,7 +214,11 @@ function userSectionFormType(): ISerializedFormSection {
             allowedDocType: ['image/png'],
             initialValue: '',
             required: true,
-            validator: []
+            validator: [
+              {
+                operation: 'validateMaxFileSize'
+              }
+            ]
           }
         ]
       }

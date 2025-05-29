@@ -22,6 +22,7 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
           name {
             firstNames
             familyName
+            middleName
           }
           birthDate
           gender
@@ -38,6 +39,10 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
             country
             line
           }
+        }
+        questionnaire {
+          fieldId
+          value
         }
         registration {
           trackingId
@@ -70,6 +75,7 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
           name {
             firstNames
             familyName
+            middleName
           }
           birthDate
           gender
@@ -88,6 +94,10 @@ const FETCH_RECORD_DETAILS_FOR_VERIFICATION = gql`
             city
             country
           }
+        }
+        questionnaire {
+          fieldId
+          value
         }
         registration {
           trackingId

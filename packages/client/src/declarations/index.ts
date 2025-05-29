@@ -786,8 +786,7 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state),
-      declaration.originalData
+      getOfflineData(state)
     )
 
     const transformedDeclarationForBride = draftToGqlTransformer(
@@ -796,8 +795,7 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state),
-      declaration.originalData
+      getOfflineData(state)
     )
 
     transformedNameForGroom =
@@ -827,8 +825,7 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state),
-      declaration.originalData
+      getOfflineData(state)
     )
     transformedName =
       (transformedDeclaration &&

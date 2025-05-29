@@ -24,6 +24,7 @@ interface IValidationMessages
   officeMustBeSelected: MessageDescriptor
   greaterThanZero: MessageDescriptor
   isValidBirthDate: MessageDescriptor
+  isValidAgeGap: MessageDescriptor
   isValidDateOfDeath: MessageDescriptor
   isDateNotBeforeBirth: MessageDescriptor
   isDateNotAfterDeath: MessageDescriptor
@@ -40,6 +41,7 @@ interface IValidationMessages
   requiredBasic: MessageDescriptor
   required: MessageDescriptor
   requiredForNewUser: MessageDescriptor
+  requiredForUpdateUser: MessageDescriptor
   requiredReasonForCorrection: MessageDescriptor
   requiredSymbol: MessageDescriptor
   validBirthRegistrationNumber: MessageDescriptor
@@ -52,6 +54,10 @@ interface IValidationMessages
   nonDecimalPointNumber: MessageDescriptor
   invalidDate: MessageDescriptor
   isAgeInYearsBetween: MessageDescriptor
+  hasSpecialCharacters: MessageDescriptor
+  isFutureDate: MessageDescriptor
+  isBeforeChildBirthDate: MessageDescriptor
+  isBeforeDeceasedDeathDate: MessageDescriptor
 }
 
 const messagesToDefine: IValidationMessages = {
@@ -102,6 +108,12 @@ const messagesToDefine: IValidationMessages = {
       'The error message that appears when a non English character except numbers, hyphens and underscores is used in an English name',
     id: 'validations.englishOnlyNameFormat'
   },
+  hasSpecialCharacters: {
+    defaultMessage: 'Input cannot contain special characters or numbers',
+    description:
+      'The error message that appears when a special character or a number is given as an input',
+    id: 'validations.hasSpecialCharacters'
+  },
   facilityMustBeSelected: {
     defaultMessage: 'No facility selected',
     description: 'The error message appears when no valid facility is selected',
@@ -123,6 +135,11 @@ const messagesToDefine: IValidationMessages = {
     description:
       'The error message appears when the given birth date is not valid',
     id: 'validations.isValidBirthDate'
+  },
+  isValidAgeGap: {
+    defaultMessage: 'Invalid age gap between the person & the parent',
+    description: 'The error message appears when the age gap is not valid',
+    id: 'validations.isValidAgeGap'
   },
   isValidDateOfDeath: {
     defaultMessage: 'Must be a valid date of death',
@@ -221,6 +238,12 @@ const messagesToDefine: IValidationMessages = {
       'The error message that appears on required fields on new user form',
     id: 'validations.userform.required'
   },
+  requiredForUpdateUser: {
+    defaultMessage: 'Required to update a existing user',
+    description:
+      'The error message that appears on required fields on update user form',
+    id: 'validations.userform.requiredUpdate'
+  },
   requiredReasonForCorrection: {
     defaultMessage: 'Please provide a reason for this correction',
     description:
@@ -294,6 +317,24 @@ const messagesToDefine: IValidationMessages = {
     defaultMessage: 'Age must be between {min} and {max} years',
     description:
       'The error message that appears when a date is outside the valid age range'
+  },
+  isFutureDate: {
+    defaultMessage: 'Must not be a future date',
+    description:
+      'The error message appears when the entered date is a future date',
+    id: 'validations.isFutureDate'
+  },
+  isBeforeChildBirthDate: {
+    defaultMessage: 'Must not be a date before child birth date',
+    description:
+      'The error message appears when the date is before child birth date',
+    id: 'validations.isBeforeChildBirthDate'
+  },
+  isBeforeDeceasedDeathDate: {
+    defaultMessage: 'Must not be a date before deceased death date',
+    description:
+      'The error message appears when the date is before deceased death date',
+    id: 'validations.isBeforeDeceasedDeathDate'
   }
 }
 

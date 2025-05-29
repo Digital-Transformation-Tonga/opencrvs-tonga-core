@@ -378,7 +378,7 @@ function InProgressComponent(props: IRegistrarHomeProps) {
     hospitalCount: number
   ) => {
     const tabs = {
-      activeTabId: selectorId || SELECTOR_ID.fieldAgentDrafts,
+      activeTabId: selectorId || SELECTOR_ID.hospitalDrafts,
       onTabClick: (selectorId: string) => {
         navigate(
           generateGoToHomeTabUrl({
@@ -388,13 +388,13 @@ function InProgressComponent(props: IRegistrarHomeProps) {
         )
       },
       sections: [
-        {
-          id: SELECTOR_ID.fieldAgentDrafts,
-          title: `${props.intl.formatMessage(
-            messages.inProgressFieldAgents
-          )} (${fieldAgentCount})`,
-          disabled: false
-        },
+        // {
+        //   id: SELECTOR_ID.fieldAgentDrafts,
+        //   title: `${props.intl.formatMessage(
+        //     messages.inProgressFieldAgents
+        //   )} (${fieldAgentCount})`,
+        //   disabled: false
+        // },
         {
           id: SELECTOR_ID.hospitalDrafts,
           title: `${props.intl.formatMessage(
@@ -447,17 +447,17 @@ function InProgressComponent(props: IRegistrarHomeProps) {
   const { intl, selectorId, queryData, onPageChange } = props
 
   const isShowPagination =
-    !props.selectorId || props.selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? props.queryData.inProgressData &&
+    !props.selectorId || props.selectorId === SELECTOR_ID.hospitalDrafts
+      ? props.queryData.notificationData &&
+        props.queryData.notificationData.totalItems &&
+        props.queryData.notificationData.totalItems > props.pageSize
+        ? true
+        : false
+      : props.queryData.inProgressData &&
         props.queryData.inProgressData.totalItems &&
         props.queryData.inProgressData.totalItems > props.pageSize
-        ? true
-        : false
-      : props.queryData.notificationData &&
-          props.queryData.notificationData.totalItems &&
-          props.queryData.notificationData.totalItems > props.pageSize
-        ? true
-        : false
+      ? true
+      : false
 
   const { inProgressData, notificationData } = queryData
   const paginationId =
@@ -466,23 +466,23 @@ function InProgressComponent(props: IRegistrarHomeProps) {
       : props.paginationId.healthSystemId
 
   const totalPages =
-    !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? props.queryData.inProgressData &&
-        props.queryData.inProgressData.totalItems &&
-        Math.ceil(props.queryData.inProgressData.totalItems / props.pageSize)
-      : props.queryData.notificationData &&
+    !selectorId || selectorId === SELECTOR_ID.hospitalDrafts
+      ? props.queryData.notificationData &&
         props.queryData.notificationData.totalItems &&
         Math.ceil(props.queryData.notificationData.totalItems / props.pageSize)
+      : props.queryData.inProgressData &&
+        props.queryData.inProgressData.totalItems &&
+        Math.ceil(props.queryData.inProgressData.totalItems / props.pageSize)
 
   const noContent =
-    !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? transformRemoteDraftsContent(inProgressData).length <= 0
-      : transformRemoteDraftsContent(notificationData).length <= 0
+    !selectorId || selectorId === SELECTOR_ID.hospitalDrafts
+      ? transformRemoteDraftsContent(notificationData).length <= 0
+      : transformRemoteDraftsContent(inProgressData).length <= 0
 
   const noResultMessage =
-    !selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts
-      ? intl.formatMessage(wqMessages.noRecordsFieldAgents)
-      : intl.formatMessage(wqMessages.noRecordsHealthSystem)
+    !selectorId || selectorId === SELECTOR_ID.hospitalDrafts
+      ? intl.formatMessage(wqMessages.noRecordsHealthSystem)
+      : intl.formatMessage(wqMessages.noRecordsFieldAgents)
 
   const tabs = getTabs(
     selectorId,
@@ -504,10 +504,10 @@ function InProgressComponent(props: IRegistrarHomeProps) {
       noResultText={noResultMessage}
       noContent={noContent}
     >
-      {(!selectorId || selectorId === SELECTOR_ID.fieldAgentDrafts) &&
-        renderFieldAgentTable(inProgressData, isShowPagination)}
-      {selectorId === SELECTOR_ID.hospitalDrafts &&
+      {(!selectorId || selectorId === SELECTOR_ID.hospitalDrafts) &&
         renderHospitalTable(notificationData, isShowPagination)}
+      {selectorId === SELECTOR_ID.fieldAgentDrafts &&
+        renderFieldAgentTable(inProgressData, isShowPagination)}
     </WQContentWrapper>
   )
 }
