@@ -76,7 +76,7 @@ export const searchForBirthDuplicates = async (
   if (
     (!body.childFirstNames && !body.childFamilyName) ||
     (!body.motherFirstNames && !body.motherFamilyName) ||
-    !body.motherDoB ||
+    // !body.motherDoB ||
     !body.childDoB
   ) {
     return []
