@@ -665,14 +665,16 @@ export const isAValidNIDNumberFormat = (value: string): boolean => {
 }
 
 export const validIDNumber =
-  (typeOfID: string): Validation =>
+  (configCase: string): Validation =>
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  (value: any) => {
+  (value: any, drafts) => {
     value = (value && value.toString()) || ''
 
     const cast = value as string
     const trimmedValue = cast === undefined || cast === null ? '' : cast.trim()
-    if (typeOfID === NATIONAL_ID) {
+    const idType = _.get(drafts, `${configCase}.${configCase}IdType`)
+
+    if (idType && idType === NATIONAL_ID) {
       if (isAValidNIDNumberFormat(trimmedValue) || !trimmedValue) {
         return undefined
       }
@@ -683,13 +685,32 @@ export const validIDNumber =
     }
     return undefined
   }
+
 export const duplicateIDNumber =
-  (fieldToDuplicateCheck: string): Validation =>
+  (
+    fieldToDuplicateCheck: string,
+    personToCheck: string,
+    personToCheckedWith: string
+  ): Validation =>
   (value: IFormFieldValue, drafts) => {
     const valueToCheck = _.get(drafts, fieldToDuplicateCheck)
-    if (value && valueToCheck && value === valueToCheck) {
-      return {
-        message: messages.duplicateNationalID
+    const idTypeToCompare = _.get(
+      drafts,
+      `${personToCheck}.${personToCheck}IdType`
+    )
+    const idTypeComparedWith = _.get(
+      drafts,
+      `${personToCheckedWith}.${personToCheckedWith}IdType`
+    )
+    if (
+      idTypeToCompare &&
+      idTypeComparedWith &&
+      idTypeToCompare === idTypeComparedWith
+    ) {
+      if (value && valueToCheck && value === valueToCheck) {
+        return {
+          message: messages.duplicateIDNumber
+        }
       }
     }
 

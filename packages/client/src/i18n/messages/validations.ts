@@ -58,6 +58,7 @@ interface IValidationMessages
   isFutureDate: MessageDescriptor
   isBeforeChildBirthDate: MessageDescriptor
   isBeforeDeceasedDeathDate: MessageDescriptor
+  duplicateIDNumber: MessageDescriptor
 }
 
 const messagesToDefine: IValidationMessages = {
@@ -286,6 +287,11 @@ const messagesToDefine: IValidationMessages = {
     defaultMessage: 'National ID must be unique',
     description: 'Unique Nid validation',
     id: 'validations.duplicateNationalID'
+  },
+  duplicateIDNumber: {
+    defaultMessage: 'ID number must be unique',
+    description: 'Unique ID number validation',
+    id: 'validations.duplicateIDNumber'
   },
   validPassportNumber: {
     defaultMessage:
