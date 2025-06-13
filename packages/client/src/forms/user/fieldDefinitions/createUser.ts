@@ -153,14 +153,6 @@ function userSectionFormType(): ISerializedFormSection {
             validator: [{ operation: 'emailAddressFormat' }]
           },
           {
-            name: 'fullHonorificName',
-            type: TEXT,
-            label: userFormMessages.fullHonorificName,
-            required: false,
-            initialValue: '',
-            validator: []
-          },
-          {
             name: 'seperator',
             type: 'DIVIDER',
             label: {
