@@ -786,7 +786,8 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state)
+      getOfflineData(state),
+      declaration.originalData
     )
 
     const transformedDeclarationForBride = draftToGqlTransformer(
@@ -795,7 +796,8 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state)
+      getOfflineData(state),
+      declaration.originalData
     )
 
     transformedNameForGroom =
@@ -825,7 +827,8 @@ export async function updateWorkqueueData(
       declaration.data,
       declaration.id,
       getUserDetails(state),
-      getOfflineData(state)
+      getOfflineData(state),
+      declaration.originalData
     )
     transformedName =
       (transformedDeclaration &&
@@ -967,6 +970,34 @@ export async function writeDeclarationByUser(
       'printTab',
       currentUserData.workqueue
     )
+  }
+
+  await storage.setItem('USER_DATA', JSON.stringify(allUserData))
+  return declaration
+}
+
+export async function writeDeclarationByUserWithoutStateUpdate(
+  userId: string,
+  declaration: IDeclaration
+) {
+  const uID = userId || (await getCurrentUserID())
+  const userData = await getUserData(uID)
+  const { allUserData } = userData
+  let { currentUserData } = userData
+
+  if (currentUserData) {
+    currentUserData.declarations = [
+      ...currentUserData.declarations.filter(
+        (savedDeclaration) => savedDeclaration.id !== declaration.id
+      ),
+      declaration
+    ]
+  } else {
+    currentUserData = {
+      userID: uID,
+      declarations: [declaration]
+    }
+    allUserData.push(currentUserData)
   }
 
   await storage.setItem('USER_DATA', JSON.stringify(allUserData))
@@ -1892,7 +1923,12 @@ export const declarationsReducer: LoopReducer<IDeclarationsState, Action> = (
       )
     case UNASSIGN_DECLARATION_FAILED: {
       const error = action.payload.error
-      const declarationNextToUnassign = state.declarations.find(
+      /*
+       * The next declaration that's ready to be unassigned.
+       * We don't want to hold up the unassign queue because
+       * of one failed unassign action
+       */
+      const nextInUnassignQueue = state.declarations.find(
         (declaration) =>
           declaration.downloadStatus === DOWNLOAD_STATUS.READY_TO_UNASSIGN
       )
@@ -1912,10 +1948,10 @@ export const declarationsReducer: LoopReducer<IDeclarationsState, Action> = (
                 )
               ),
               Cmd.action(updateRegistrarWorkqueue()),
-              declarationNextToUnassign
+              nextInUnassignQueue
                 ? Cmd.action(
                     executeUnassignDeclaration(
-                      declarationNextToUnassign.id,
+                      nextInUnassignQueue.id,
                       action.payload.client,
                       action.payload.refetchQueries
                     )
@@ -1923,6 +1959,18 @@ export const declarationsReducer: LoopReducer<IDeclarationsState, Action> = (
                 : Cmd.none
             ],
             { sequence: true }
+          )
+        )
+      }
+      if (nextInUnassignQueue) {
+        return loop(
+          state,
+          Cmd.action(
+            executeUnassignDeclaration(
+              nextInUnassignQueue.id,
+              action.payload.client,
+              action.payload.refetchQueries
+            )
           )
         )
       }

@@ -1369,19 +1369,10 @@ export const typeResolvers: GQLResolver = {
         await context.dataSources.fhirAPI.getPractionerRoleHistory(
           practitionerRoleId
         )
-      const result =
-        practitionerRoleHistory.find(
-          (it) =>
-            it?.meta?.lastUpdated &&
-            task.lastModified &&
-            it?.meta?.lastUpdated <= task.lastModified!
-        ) ?? practitionerRoleHistory.at(-1)
-
-      const targetCode = result?.code?.find((element) => {
-        return element.coding?.[0].system === 'http://opencrvs.org/specs/roles'
-      })
-
-      const roleId = targetCode?.coding?.[0].code
+      const roleId = getUserRoleFromHistory(
+        practitionerRoleHistory,
+        task.lastModified
+      )
       const userResponse =
         await context.dataSources.usersAPI.getUserByPractitionerId(
           practitionerId

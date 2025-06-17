@@ -140,7 +140,8 @@ const VerifyCorrectorComponent = ({
       declaration.data,
       declaration.id,
       user,
-      config
+      config,
+      declaration.originalData
     )
 
     const informantType =
@@ -172,9 +173,37 @@ const VerifyCorrectorComponent = ({
       const isExactDobUnknownForIdVerifier =
         !!declaration?.data[corrector]?.exactDateOfBirthUnknown
 
-      const birthDate = !isExactDobUnknownForIdVerifier
+      let birthDate = !isExactDobUnknownForIdVerifier
         ? fields.birthDateField && (info[fields.birthDateField] as string)
         : ''
+
+      if (!birthDate) {
+        const eventInformantType = (
+          declaration!.data?.informant?.informantType as string
+        ).toLowerCase()
+
+        if (declaration?.event === 'birth' && corrector === 'informant') {
+          if (eventInformantType === 'mother') {
+            birthDate = declaration!.data?.mother?.motherBirthDate as string
+          }
+          if (eventInformantType === 'father') {
+            birthDate = declaration!.data?.father?.fatherBirthDate as string
+          }
+        }
+
+        if (declaration?.event === 'death' && corrector === 'informant') {
+          if (eventInformantType === 'mother') {
+            birthDate = declaration!.data?.mother?.motherBirthDate as string
+          }
+          if (eventInformantType === 'father') {
+            birthDate = declaration!.data?.father?.fatherBirthDate as string
+          }
+          if (eventInformantType === 'spouse') {
+            birthDate = declaration!.data?.spouse?.spouseBirthDate as string
+          }
+        }
+      }
+
       const nationality =
         (fields.nationalityField &&
           (info[fields.nationalityField] as string)) ||
