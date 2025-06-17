@@ -22,8 +22,6 @@ export const resolveLocationChildren = async (
   id: UUID,
   type: string | undefined
 ) => {
-  const db = client.db()
-
   const childQuery = [
     {
       $match: { id: id }
@@ -68,6 +66,8 @@ export const resolveLocationChildren = async (
   ]
 
   try {
+    const db = await client.db()
+
     const result = await db
       .collection<Location>('Location_view_with_plain_ids')
       .aggregate(childQuery)

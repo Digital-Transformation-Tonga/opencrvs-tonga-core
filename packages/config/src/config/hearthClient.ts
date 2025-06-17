@@ -33,7 +33,7 @@ export const start = async (): Promise<MongoClient> => {
     logger.info('Connected to MongoDB')
     return client
   } catch (err) {
-    logger.error('Failed to connect to MongoDB. Retrying...')
+    logger.error('Failed to connect to MongoDB Hearth. Retrying...', err)
     await wait(1000)
     return await start()
   }

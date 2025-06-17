@@ -29,6 +29,7 @@ export function createPreSignedUrl(
     const presignedURL = signFileUrl(payload.fileUri)
     return h.response({ presignedURL }).code(200)
   } catch (error) {
+    console.error('Error creating presigned URL:', error)
     return h.response(error).code(400)
   }
 }
