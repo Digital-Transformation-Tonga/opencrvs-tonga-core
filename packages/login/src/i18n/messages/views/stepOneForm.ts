@@ -54,7 +54,7 @@ const messagesToDefine: IStepOneFormMessages = {
   },
   forgotPassword: {
     id: 'login.forgotPassword',
-    defaultMessage: 'Forgot password',
+    defaultMessage: "Can't login?",
     description: 'The label that appears on the Forgot password button'
   },
   submissionError: {

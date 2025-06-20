@@ -239,10 +239,6 @@ export const isDateNotInFuture = (date: string) => {
   return new Date(date) <= new Date(Date.now())
 }
 
-export const isDateNotPastLimit = (date: string, limit: Date) => {
-  return new Date(date) >= limit
-}
-
 export const isDateNotBeforeBirth = (date: string, drafts: IFormData) => {
   const birthDate = drafts?.deceased?.birthDate as string
   return birthDate ? new Date(date) >= new Date(birthDate) : true
@@ -307,30 +303,29 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-      isDateNotInFuture(cast) &&
-      isAValidDateFormat(cast) &&
-      isDateNotAfterBirthEvent(cast, drafts as IFormData)
-    ? isDateNotAfterDeath(cast, drafts as IFormData)
-      ? undefined
+        isDateNotInFuture(cast) &&
+        isAValidDateFormat(cast) &&
+        isDateNotAfterBirthEvent(cast, drafts as IFormData)
+      ? isDateNotAfterDeath(cast, drafts as IFormData)
+        ? undefined
+        : {
+            message: messages.isDateNotAfterDeath
+          }
       : {
-          message: messages.isDateNotAfterDeath
+          message: messages.isValidBirthDate
         }
-    : {
-        message: messages.isValidBirthDate
-      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   const childBirthDate = value as string
-  const pastDateLimit = new Date(1800, 0, 1)
+
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-      isAValidDateFormat(childBirthDate) &&
-      isDateNotInFuture(childBirthDate) &&
-      isDateNotPastLimit(childBirthDate, pastDateLimit)
-    ? undefined
-    : { message: messages.isValidBirthDate }
+        isAValidDateFormat(childBirthDate) &&
+        isDateNotInFuture(childBirthDate)
+      ? undefined
+      : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -519,17 +514,6 @@ export const dateNotInFuture = (): Validation => (value: IFormFieldValue) => {
   }
 }
 
-export const dateNotPastLimit =
-  (limit: string): Validation =>
-  (value: IFormFieldValue) => {
-    const cast = value as string
-    if (isDateNotPastLimit(cast, new Date(limit))) {
-      return undefined
-    } else {
-      return { message: messages.dateFormat }
-    }
-  }
-
 export const dateNotToday = (date: string): boolean => {
   const today = new Date().setHours(0, 0, 0, 0)
   const day = new Date(date).setHours(0, 0, 0, 0)
@@ -681,14 +665,16 @@ export const isAValidNIDNumberFormat = (value: string): boolean => {
 }
 
 export const validIDNumber =
-  (typeOfID: string): Validation =>
+  (configCase: string): Validation =>
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  (value: any) => {
+  (value: any, drafts) => {
     value = (value && value.toString()) || ''
 
     const cast = value as string
     const trimmedValue = cast === undefined || cast === null ? '' : cast.trim()
-    if (typeOfID === NATIONAL_ID) {
+    const idType = _.get(drafts, `${configCase}.${configCase}IdType`)
+
+    if (idType && idType === NATIONAL_ID) {
       if (isAValidNIDNumberFormat(trimmedValue) || !trimmedValue) {
         return undefined
       }
@@ -699,13 +685,32 @@ export const validIDNumber =
     }
     return undefined
   }
+
 export const duplicateIDNumber =
-  (fieldToDuplicateCheck: string): Validation =>
+  (
+    fieldToDuplicateCheck: string,
+    personToCheck: string,
+    personToCheckedWith: string
+  ): Validation =>
   (value: IFormFieldValue, drafts) => {
     const valueToCheck = _.get(drafts, fieldToDuplicateCheck)
-    if (value && valueToCheck && value === valueToCheck) {
-      return {
-        message: messages.duplicateNationalID
+    const idTypeToCompare = _.get(
+      drafts,
+      `${personToCheck}.${personToCheck}IdType`
+    )
+    const idTypeComparedWith = _.get(
+      drafts,
+      `${personToCheckedWith}.${personToCheckedWith}IdType`
+    )
+    if (
+      idTypeToCompare &&
+      idTypeComparedWith &&
+      idTypeToCompare === idTypeComparedWith
+    ) {
+      if (value && valueToCheck && value === valueToCheck) {
+        return {
+          message: messages.duplicateIDNumber
+        }
       }
     }
 
@@ -777,8 +782,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-    ? undefined
-    : { message: messages.greaterThanZero }
+      ? undefined
+      : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
