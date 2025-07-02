@@ -92,11 +92,11 @@ import {
   DependencyInfo,
   Ii18nButtonFormField,
   LINK_BUTTON,
-  IDocumentUploaderWithOptionsFormField,
   ID_READER,
   ID_VERIFICATION_BANNER,
-  LOADER,
-  ILocationSearchInputFormField
+  IDocumentUploaderWithOptionsFormField,
+  ILocationSearchInputFormField,
+  LOADER
 } from '@client/forms'
 import { getValidationErrorsForForm, Errors } from '@client/forms/validation'
 import { InputField } from '@client/components/form/InputField'
@@ -321,6 +321,7 @@ const GeneratedInputField = React.memo<GeneratedInputFieldProps>(
           type={fieldDefinition.bannerType}
           idFieldName={fieldDefinition.idFieldName}
           setFieldValue={setFieldValue}
+          form={values}
         />
       )
     }
@@ -493,6 +494,7 @@ const GeneratedInputField = React.memo<GeneratedInputFieldProps>(
         <InputField {...inputFieldProps}>
           <TimeField
             {...inputProps}
+            use12HourFormat={fieldDefinition.use12HourFormat}
             ignorePlaceHolder={fieldDefinition.ignorePlaceHolder}
             onChange={onChangeGroupInput}
             value={value as string}
@@ -870,7 +872,7 @@ export interface ITouchedNestedFields {
   }
 }
 
-class FormSectionComponent extends React.Component<Props> {
+export class FormSectionComponent extends React.Component<Props> {
   componentDidUpdate(prevProps: Props) {
     const userChangedForm = !isEqual(this.props.values, prevProps.values)
     const sectionChanged = prevProps.id !== this.props.id
@@ -950,26 +952,52 @@ class FormSectionComponent extends React.Component<Props> {
     this.props.setFieldTouched(e.target.name)
   }
 
-  setFieldValuesWithDependency = (
+  static getUpdatedValuesAfterDependentFieldEvaluation = (
+    existingValues: IFormSectionData,
+    fields: IFormField[],
     fieldName: string,
-    value: IFormFieldValue
-  ) => {
-    const updatedValues = cloneDeep(this.props.values)
+    value: IFormFieldValue,
+    evalParams: {
+      config: IOfflineData
+      draft: IFormData
+      user: UserDetails | null
+    }
+  ): IFormSectionData => {
+    const updatedValues = cloneDeep(existingValues)
     set(updatedValues, fieldName, value)
     const updateDependentFields = (fieldName: string) => {
-      const dependentFields = getDependentFields(this.props.fields, fieldName)
+      const dependentFields = getDependentFields(fields, fieldName)
       for (const field of dependentFields) {
         updatedValues[field.name] = evalExpressionInFieldDefinition(
           (field.initialValue as DependencyInfo).expression,
           updatedValues,
-          this.props.offlineCountryConfig,
-          this.props.draftData,
-          this.props.userDetails
+          evalParams.config,
+          evalParams.draft,
+          evalParams.user
         )
         updateDependentFields(field.name)
       }
     }
     updateDependentFields(fieldName)
+    return updatedValues
+  }
+
+  setFieldValuesWithDependency = (
+    fieldName: string,
+    value: IFormFieldValue
+  ) => {
+    const updatedValues =
+      FormSectionComponent.getUpdatedValuesAfterDependentFieldEvaluation(
+        this.props.values,
+        this.props.fields,
+        fieldName,
+        value,
+        {
+          config: this.props.offlineCountryConfig,
+          draft: this.props.draftData,
+          user: this.props.userDetails
+        }
+      )
 
     this.props.setValues(updatedValues)
   }
@@ -1166,7 +1194,29 @@ class FormSectionComponent extends React.Component<Props> {
                             setValues(updatedValues)
                           }
                         } as ILoaderButton)
-                      : field
+                      : field.type === LOCATION_SEARCH_INPUT
+                        ? {
+                            ...field,
+                            locationList: generateLocations(
+                              field.searchableResource.reduce(
+                                (locations, resource) => {
+                                  return {
+                                    ...locations,
+                                    ...getListOfLocations(
+                                      offlineCountryConfig,
+                                      resource
+                                    )
+                                  }
+                                },
+                                {}
+                              ),
+                              intl,
+                              (location) =>
+                                field.searchableType.includes(location.type),
+                              field.userOfficeId
+                            )
+                          }
+                        : field
 
           if (
             field.type === FETCH_BUTTON ||

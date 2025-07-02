@@ -58,6 +58,7 @@ interface IValidationMessages
   isFutureDate: MessageDescriptor
   isBeforeChildBirthDate: MessageDescriptor
   isBeforeDeceasedDeathDate: MessageDescriptor
+  duplicateIDNumber: MessageDescriptor
 }
 
 const messagesToDefine: IValidationMessages = {
@@ -109,9 +110,9 @@ const messagesToDefine: IValidationMessages = {
     id: 'validations.englishOnlyNameFormat'
   },
   hasSpecialCharacters: {
-    defaultMessage: 'Input cannot contain special characters',
+    defaultMessage: 'Input cannot contain special characters or numbers',
     description:
-      'The error message that appears when a special character is given as input',
+      'The error message that appears when a special character or a number is given as an input',
     id: 'validations.hasSpecialCharacters'
   },
   facilityMustBeSelected: {
@@ -286,6 +287,11 @@ const messagesToDefine: IValidationMessages = {
     defaultMessage: 'National ID must be unique',
     description: 'Unique Nid validation',
     id: 'validations.duplicateNationalID'
+  },
+  duplicateIDNumber: {
+    defaultMessage: 'ID number must be unique',
+    description: 'Unique ID number validation',
+    id: 'validations.duplicateIDNumber'
   },
   validPassportNumber: {
     defaultMessage:
