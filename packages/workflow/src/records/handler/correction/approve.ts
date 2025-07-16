@@ -41,6 +41,10 @@ import { SCOPES } from '@opencrvs/commons/authentication'
 import { getValidRecordById } from '@workflow/records'
 import { notifyForAction } from '@workflow/utils/country-config-api'
 import { getRecordSpecificToken } from '@workflow/records/token-exchange'
+import {
+  isNotificationEnabled,
+  sendNotification as sendNotificationWorkflow
+} from '@workflow/records/notification'
 
 export const approveCorrectionRoute = createRoute({
   method: 'POST',
@@ -158,6 +162,16 @@ export const approveCorrectionRoute = createRoute({
         userFullName: requestingPractitioner.name
       }
     )
+
+    // send notification to informant
+    const isNotification = await isNotificationEnabled(
+      'correction-made',
+      getEventType(updatedRecord),
+      token
+    )
+    if (isNotification) {
+      await sendNotificationWorkflow('correction-made', updatedRecord, token)
+    }
 
     const recordSpecificToken = await getRecordSpecificToken(
       token,
