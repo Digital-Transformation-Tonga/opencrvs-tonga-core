@@ -10,7 +10,7 @@
  */
 import { useSelector } from 'react-redux'
 import { getScope, getUserDetails } from '@client/profile/profileSelectors'
-import { Scope, SCOPES } from '@opencrvs/commons/client'
+import { findScope, Scope, SCOPES } from '@opencrvs/commons/client'
 import { User, Location } from '@client/utils/gateway'
 import { SUBMISSION_STATUS } from '@client/declarations'
 import {
@@ -98,6 +98,9 @@ export function usePermissions() {
     SCOPES.SEARCH_DEATH_MY_JURISDICTION
   )
 
+  const editableRoleIds =
+    findScope(userScopes!, 'user.edit')?.options?.role ?? []
+
   const canDeclareRecords = hasAnyScope(RECORD_DECLARE_SCOPES)
 
   const canReadUser = (user: Pick<User, 'id' | 'primaryOffice'>) => {
@@ -133,6 +136,9 @@ export function usePermissions() {
     }
     if (hasScope(SCOPES.USER_UPDATE)) {
       return true
+    }
+    if (!editableRoleIds.includes(user.role.id)) {
+      return false
     }
     if (hasScope(SCOPES.USER_UPDATE_MY_JURISDICTION)) {
       if (roleScopes(user.role.id).includes(SCOPES.USER_UPDATE)) {
