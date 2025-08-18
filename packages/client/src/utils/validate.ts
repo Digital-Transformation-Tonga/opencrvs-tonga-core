@@ -13,7 +13,9 @@ import { validationMessages as messages } from '@client/i18n/messages'
 import {
   REGEXP_BLOCK_ALPHA_NUMERIC_DOT,
   REGEXP_DECIMAL_POINT_NUMBER,
-  NATIONAL_ID
+  NATIONAL_ID,
+  BIRTH_REGISTRATION_NUMBER,
+  PASSPORT_NUMBER
 } from '@client/utils/constants'
 import { validate as validateEmail } from 'email-validator'
 import XRegExp from 'xregexp'
@@ -664,6 +666,16 @@ export const isAValidNIDNumberFormat = (value: string): boolean => {
   return new RegExp(pattern).test(value)
 }
 
+export const isAValidPassportNumberFormat = (value: string): boolean => {
+  const pattern = window.config.PASSPORT_NUMBER_PATTERN
+  return new RegExp(pattern).test(value)
+}
+
+export const isAValidBRNNumberFormat = (value: string): boolean => {
+  const pattern = window.config.BRN_NUMBER_PATTERN
+  return new RegExp(pattern).test(value)
+}
+
 export const validIDNumber =
   (configCase: string): Validation =>
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -685,6 +697,22 @@ export const validIDNumber =
 
         return {
           message: messages.validNationalId
+        }
+      } else if (idType && idType === PASSPORT_NUMBER) {
+        if (isAValidPassportNumberFormat(trimmedValue) || !trimmedValue) {
+          return undefined
+        }
+
+        return {
+          message: messages.validPassportNumber
+        }
+      } else if (idType && idType === BIRTH_REGISTRATION_NUMBER) {
+        if (isAValidBRNNumberFormat(trimmedValue) || !trimmedValue) {
+          return undefined
+        }
+
+        return {
+          message: messages.validBirthRegistrationNumber
         }
       }
     }
