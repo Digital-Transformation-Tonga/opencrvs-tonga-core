@@ -13,7 +13,9 @@ import { validationMessages as messages } from '@client/i18n/messages'
 import {
   REGEXP_BLOCK_ALPHA_NUMERIC_DOT,
   REGEXP_DECIMAL_POINT_NUMBER,
-  NATIONAL_ID
+  NATIONAL_ID,
+  BIRTH_REGISTRATION_NUMBER,
+  PASSPORT_NUMBER
 } from '@client/utils/constants'
 import { validate as validateEmail } from 'email-validator'
 import XRegExp from 'xregexp'
@@ -303,17 +305,17 @@ export const isValidBirthDate: Validation = (
   return !cast
     ? { message: messages.required }
     : cast &&
-        isDateNotInFuture(cast) &&
-        isAValidDateFormat(cast) &&
-        isDateNotAfterBirthEvent(cast, drafts as IFormData)
-      ? isDateNotAfterDeath(cast, drafts as IFormData)
-        ? undefined
-        : {
-            message: messages.isDateNotAfterDeath
-          }
+      isDateNotInFuture(cast) &&
+      isAValidDateFormat(cast) &&
+      isDateNotAfterBirthEvent(cast, drafts as IFormData)
+    ? isDateNotAfterDeath(cast, drafts as IFormData)
+      ? undefined
       : {
-          message: messages.isValidBirthDate
+          message: messages.isDateNotAfterDeath
         }
+    : {
+        message: messages.isValidBirthDate
+      }
 }
 
 export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
@@ -322,10 +324,10 @@ export const isValidChildBirthDate: Validation = (value: IFormFieldValue) => {
   return !childBirthDate
     ? { message: messages.required }
     : childBirthDate &&
-        isAValidDateFormat(childBirthDate) &&
-        isDateNotInFuture(childBirthDate)
-      ? undefined
-      : { message: messages.isValidBirthDate }
+      isAValidDateFormat(childBirthDate) &&
+      isDateNotInFuture(childBirthDate)
+    ? undefined
+    : { message: messages.isValidBirthDate }
 }
 
 export const isValidParentsBirthDate =
@@ -664,6 +666,16 @@ export const isAValidNIDNumberFormat = (value: string): boolean => {
   return new RegExp(pattern).test(value)
 }
 
+export const isAValidPassportNumberFormat = (value: string): boolean => {
+  const pattern = window.config.PASSPORT_NUMBER_PATTERN
+  return new RegExp(pattern).test(value)
+}
+
+export const isAValidBRNNumberFormat = (value: string): boolean => {
+  const pattern = window.config.BRN_NUMBER_PATTERN
+  return new RegExp(pattern).test(value)
+}
+
 export const validIDNumber =
   (configCase: string): Validation =>
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
@@ -673,14 +685,35 @@ export const validIDNumber =
     const cast = value as string
     const trimmedValue = cast === undefined || cast === null ? '' : cast.trim()
     const idType = _.get(drafts, `${configCase}.${configCase}IdType`)
+    const nationality = _.get(drafts, `${configCase}.nationality`)
 
-    if (idType && idType === NATIONAL_ID) {
-      if (isAValidNIDNumberFormat(trimmedValue) || !trimmedValue) {
-        return undefined
-      }
+    if (nationality !== 'TON') {
+      return undefined
+    } else {
+      if (idType && idType === NATIONAL_ID) {
+        if (isAValidNIDNumberFormat(trimmedValue) || !trimmedValue) {
+          return undefined
+        }
 
-      return {
-        message: messages.validNationalId
+        return {
+          message: messages.validNationalId
+        }
+      } else if (idType && idType === PASSPORT_NUMBER) {
+        if (isAValidPassportNumberFormat(trimmedValue) || !trimmedValue) {
+          return undefined
+        }
+
+        return {
+          message: messages.validPassportNumber
+        }
+      } else if (idType && idType === BIRTH_REGISTRATION_NUMBER) {
+        if (isAValidBRNNumberFormat(trimmedValue) || !trimmedValue) {
+          return undefined
+        }
+
+        return {
+          message: messages.validBirthRegistrationNumber
+        }
       }
     }
     return undefined
@@ -782,8 +815,8 @@ export const greaterThanZero: Validation = (value: IFormFieldValue) => {
   return !value && value !== 0
     ? { message: messages.required }
     : value && Number(value) > 0
-      ? undefined
-      : { message: messages.greaterThanZero }
+    ? undefined
+    : { message: messages.greaterThanZero }
 }
 
 export const notGreaterThan =
