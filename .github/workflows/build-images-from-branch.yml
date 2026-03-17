@@ -199,6 +199,7 @@ jobs:
             build-args: |
               VERSION=${{ needs.base.outputs.version }}
               BRANCH=${{ needs.base.outputs.branch }}
+              DOCKER_ORGID=${{ vars.DOCKER_ORG }}
             provenance: false
             push: true
             context: .
