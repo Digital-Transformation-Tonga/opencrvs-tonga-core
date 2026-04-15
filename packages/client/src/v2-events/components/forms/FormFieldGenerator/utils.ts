@@ -13,9 +13,9 @@ import {
   FieldReference,
   FieldValue,
   HttpField,
+  IndexMap,
   isFieldReference
 } from '@opencrvs/commons/client'
-import { IndexMap } from '@client/utils'
 import {
   makeFormFieldIdFormikCompatible,
   makeFormikFieldIdOpenCRVSCompatible
@@ -54,7 +54,7 @@ export function parseFieldReferenceToValue(
   fieldReference: FieldReference,
   fieldValues: Record<string, FieldValue>
 ) {
-  return fieldReference.$$subfield && fieldReference.$$subfield.length > 0
+  return fieldReference.$$subfield.length > 0
     ? get(fieldValues[fieldReference.$$field], fieldReference.$$subfield)
     : fieldValues[fieldReference.$$field]
 }
