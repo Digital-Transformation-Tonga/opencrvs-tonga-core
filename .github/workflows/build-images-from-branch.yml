@@ -78,13 +78,18 @@ jobs:
         env:
           BRANCH: ${{ inputs.branch_tag_name || github.ref_name }}
         run: |
-          export VERSION=`git log -1 --pretty=format:%h`
+          export VERSION=$(git rev-parse --short=7 HEAD)
           echo "Pushing version $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          ESCAPED_BRANCH=$(echo $BRANCH | sed 's/[^a-zA-Z0-9_.-]/-/g')
-          echo "from branch $ESCAPED_BRANCH"
-          echo "branch=$ESCAPED_BRANCH" >> $GITHUB_OUTPUT
+          # Map branch to short code and sanitize
+          SHORT_BRANCH=$(echo $BRANCH | sed 's/tonga\/deployment/deploy\/ton/g; s/tonga/ton/g; s/deployment/deploy/g; s/develop/dev/g')
+          ESCAPED_BRANCH=$(echo $SHORT_BRANCH | sed 's/[^a-zA-Z0-9_.-]/-/g')
+          
+          # New tag format: short-branch-sha
+          BRANCH_SHA_TAG="$ESCAPED_BRANCH-$VERSION"
+          echo "from branch $BRANCH (shortened to $SHORT_BRANCH, escaped to $ESCAPED_BRANCH)"
+          echo "branch=$BRANCH_SHA_TAG" >> $GITHUB_OUTPUT
 
       - name: Set architecture label
         id: arch_label
