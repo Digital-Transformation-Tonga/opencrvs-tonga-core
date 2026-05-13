@@ -10,6 +10,11 @@ name: Build and Deploy OpenAPI HTML
 
 on:
   push:
+    branches:
+      - 'tonga/dep/*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -41,6 +46,7 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+          git config --global init.defaultBranch main
 
           BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}" | sed 's/\//-/g')
           TARGET_DIR="tmp-pages"
