@@ -39,7 +39,7 @@ on:
   workflow_dispatch:
     inputs:
       branch_tag_name:
-        default: tonga/dep/v1.9.13/dev
+        default: tonga/dep/v1.9.13/qa
         required: true
         description: Branch or Tag to build from
       publish_release:
