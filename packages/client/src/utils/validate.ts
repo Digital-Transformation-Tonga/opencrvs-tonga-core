@@ -601,6 +601,20 @@ export const isValidEnglishName = (value: string): boolean => {
   return checkNameWords(value, isValidEnglishWord)
 }
 
+const LOCAL_NAME_CHAR_CLASS = `[\\p{L}\\p{M}'\\u02BB\\u2019.-]`
+const VALID_LOCAL_NAME_PATTERN = `^${LOCAL_NAME_CHAR_CLASS}*(\\(${LOCAL_NAME_CHAR_CLASS}+\\))?${LOCAL_NAME_CHAR_CLASS}*( ${LOCAL_NAME_CHAR_CLASS}*(\\(${LOCAL_NAME_CHAR_CLASS}+\\))?${LOCAL_NAME_CHAR_CLASS}*)*$`
+
+export const isValidLocalName = (value: string): boolean => {
+  const trimmedValue = value === undefined || value === null ? '' : value.trim()
+
+  if (!trimmedValue) {
+    return true
+  }
+
+  const localNameRe = XRegExp.cache(VALID_LOCAL_NAME_PATTERN, 'u')
+  return localNameRe.test(trimmedValue)
+}
+
 export const isLengthWithinRange = (value: string, min: number, max: number) =>
   !value || (value.length >= min && value.length <= max)
 
@@ -622,6 +636,13 @@ export const englishOnlyNameFormat: Validation = (value: IFormFieldValue) => {
   return isValidEnglishName(cast)
     ? undefined
     : { message: messages.englishOnlyNameFormat }
+}
+
+export const localOnlyNameFormat: Validation = (value: IFormFieldValue) => {
+  const cast = value as string
+  return isValidLocalName(cast)
+    ? undefined
+    : { message: messages.localOnlyNameFormat }
 }
 
 export const range: RangeValidation =
