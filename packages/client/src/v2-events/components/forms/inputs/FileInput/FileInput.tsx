@@ -36,7 +36,6 @@ function FileInput({
   maxFileSize,
   label,
   error,
-  touched,
   disabled,
   maxImageSize
 }: {
@@ -49,7 +48,6 @@ function FileInput({
   description?: string
   error?: string
   label: string
-  touched?: boolean
   disabled?: boolean
   maxImageSize?: FileConfig['configuration']['maxImageSize']
 }) {
@@ -107,12 +105,10 @@ function FileInput({
         acceptedFileTypes={acceptedFileTypes}
         description={description}
         disabled={disabled}
-        error={error}
         file={file}
         label={label}
         maxFileSize={maxFileSize}
         name={name}
-        touched={touched}
         width={width}
         onComplete={handleOnComplete}
       />

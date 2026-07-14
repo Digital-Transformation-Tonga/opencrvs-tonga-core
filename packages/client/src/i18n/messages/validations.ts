@@ -20,6 +20,7 @@ interface IValidationMessages
   domLaterThanDob: MessageDescriptor
   emailAddressFormat: MessageDescriptor
   englishOnlyNameFormat: MessageDescriptor
+  localOnlyNameFormat: MessageDescriptor
   facilityMustBeSelected: MessageDescriptor
   officeMustBeSelected: MessageDescriptor
   greaterThanZero: MessageDescriptor
@@ -101,6 +102,13 @@ const messagesToDefine: IValidationMessages = {
     description:
       'The error message that appears when a non English character except numbers, hyphens and underscores is used in an English name',
     id: 'validations.englishOnlyNameFormat'
+  },
+  localOnlyNameFormat: {
+    defaultMessage:
+      "Input contains invalid characters. Use letters (any language), spaces, hyphens (-), apostrophes ('), curly apostrophes (\u2019), and the Tongan glottal stop (\u02BB).",
+    description:
+      'The error message that appears when invalid characters are used in a local name',
+    id: 'validations.localOnlyNameFormat'
   },
   facilityMustBeSelected: {
     defaultMessage: 'No facility selected',
