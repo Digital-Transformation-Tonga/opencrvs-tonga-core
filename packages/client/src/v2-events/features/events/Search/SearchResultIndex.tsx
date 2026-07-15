@@ -27,6 +27,7 @@ import {
   deserializeSearchParams,
   resolveAdvancedSearchConfig
 } from './utils'
+import { useSearchResultActions } from './useSearchResultActions'
 
 export const SearchResultIndex = () => {
   const intl = useIntl()
@@ -35,6 +36,7 @@ export const SearchResultIndex = () => {
   const { eventType } = useTypedParams(ROUTES.V2.SEARCH_RESULT)
   const location = useLocation()
   const { eventConfiguration: eventConfig } = useEventConfiguration(eventType)
+  const searchActions = useSearchResultActions()
 
   const fields = useMemo(() => {
     const sections = resolveAdvancedSearchConfig(eventConfig)
@@ -84,7 +86,7 @@ export const SearchResultIndex = () => {
 
   return (
     <SearchResultComponent
-      actions={['DEFAULT']}
+      actions={searchActions}
       columns={mandatoryColumns}
       eventConfigs={[eventConfig]}
       queryData={queryData.results}
