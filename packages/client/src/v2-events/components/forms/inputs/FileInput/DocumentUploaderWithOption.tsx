@@ -9,7 +9,7 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { useField } from 'formik'
 import {
@@ -101,6 +101,15 @@ function DocumentUploaderWithOption({
   )
 
   const [files, setFiles] = useState(value)
+
+  // Keep local state in sync with the value coming from the form store.
+  // On back-navigation the field re-mounts before Formik has re-initialised, so
+  // it first renders with an empty value and only receives the real value on a
+  // later render. Without this sync the uploaded file would never re-appear.
+  useEffect(() => {
+    setFiles(value)
+  }, [value])
+
   const [filesBeingProcessed, setFilesBeingProcessed] = useState<
     Array<{ label: string }>
   >([])
