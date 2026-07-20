@@ -419,7 +419,10 @@ describe('test buildElasticQueryFromSearchPayload', () => {
                       { term: { type: TENNIS_CLUB_MEMBERSHIP } },
                       {
                         match: {
-                          'declaration.applicant____email': 'bob@example.com'
+                          'declaration.applicant____email': {
+                            query: 'bob@example.com',
+                            operator: 'and'
+                          }
                         }
                       }
                     ],
@@ -434,7 +437,14 @@ describe('test buildElasticQueryFromSearchPayload', () => {
             bool: {
               must: [
                 { term: { type: TENNIS_CLUB_MEMBERSHIP } },
-                { match: { 'declaration.applicant____dob': '1985-01-01' } }
+                {
+                  match: {
+                    'declaration.applicant____dob': {
+                      query: '1985-01-01',
+                      operator: 'and'
+                    }
+                  }
+                }
               ],
               should: undefined
             }
