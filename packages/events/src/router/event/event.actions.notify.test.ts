@@ -10,23 +10,39 @@
  */
 
 import { TRPCError } from '@trpc/server'
+import { http, HttpResponse } from 'msw'
 import {
   ActionStatus,
   ActionType,
   generateUuid,
   getAcceptedActions,
+  getCurrentEventState,
   getUUID,
   SCOPES,
   TENNIS_CLUB_MEMBERSHIP,
   createPrng,
-  AddressType
+  AddressType,
+  eventQueryDataGenerator,
+  generateActionDuplicateDeclarationInput,
+  EventState
 } from '@opencrvs/commons'
+import {
+  tennisClubMembershipEvent,
+  tennisClubMembershipEventWithDedupCheck
+} from '@opencrvs/commons/fixtures'
 import {
   createSystemTestClient,
   createTestClient,
   setupTestCase
 } from '@events/tests/utils'
 import { getLocations } from '@events/storage/postgres/events/locations'
+import {
+  getEventIndexName,
+  getOrCreateClient
+} from '@events/storage/elasticsearch'
+import { encodeEventIndex } from '@events/service/indexing/utils'
+import { mswServer } from '@events/tests/msw'
+import { env } from '@events/environment'
 
 describe('event.actions.notify', () => {
   describe('authorization', () => {
@@ -443,4 +459,69 @@ describe('event.actions.notify', () => {
       activeActions.find((action) => action.type === ActionType.UNASSIGN)
     ).toBeDefined()
   })
+})
+
+test('deduplication is performed after notification', async () => {
+  mswServer.use(
+    http.get(`${env.COUNTRY_CONFIG_URL}/events`, () => {
+      return HttpResponse.json([
+        tennisClubMembershipEventWithDedupCheck(ActionType.DECLARE)
+      ])
+    })
+  )
+  const esClient = getOrCreateClient()
+  const prng = createPrng(73)
+  const { user, generator } = await setupTestCase()
+  const client = createTestClient(user)
+
+  const newEvent = await client.event.create(generator.event.create())
+  const existingEventId = getUUID()
+  const declaration = generateActionDuplicateDeclarationInput(
+    tennisClubMembershipEvent,
+    ActionType.DECLARE,
+    prng,
+    {
+      'applicant.dobUnknown': false
+    }
+  ) as Partial<EventState>
+
+  const existingEventIndex = eventQueryDataGenerator({
+    id: existingEventId,
+    declaration
+  })
+
+  await esClient.update({
+    index: getEventIndexName(TENNIS_CLUB_MEMBERSHIP),
+    id: existingEventId,
+    body: {
+      doc: encodeEventIndex(existingEventIndex, tennisClubMembershipEvent),
+      doc_as_upsert: true
+    },
+    refresh: 'wait_for'
+  })
+
+  const notifiedEvent = await client.event.actions.notify.request(
+    generator.event.actions.notify(newEvent.id, {
+      declaration: existingEventIndex.declaration,
+      keepAssignment: true
+    })
+  )
+
+  // NOTIFY must still succeed — duplicates flag the record, they do not block it
+  expect(
+    getAcceptedActions(notifiedEvent).some(
+      (action) => action.type === ActionType.NOTIFY
+    )
+  ).toBe(true)
+  expect(
+    notifiedEvent.actions.some(
+      (action) => action.type === ActionType.DUPLICATE_DETECTED
+    )
+  ).toBe(true)
+  expect(
+    getCurrentEventState(notifiedEvent, tennisClubMembershipEvent)
+      .potentialDuplicates
+  ).toEqual([
+    { id: existingEventId, trackingId: existingEventIndex.trackingId }
+  ])
 })

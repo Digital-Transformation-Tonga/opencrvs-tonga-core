@@ -62,6 +62,7 @@ import { cleanupUnreferencedFiles } from '@events/service/files'
 import { UserContext } from '../../context'
 import { getDuplicateEvents } from '../../service/deduplication/deduplication'
 import { declareActionProcedures } from './actions/declare'
+import { notifyActionProcedures } from './actions/notify'
 import { getDefaultActionProcedures } from './actions'
 
 extendZodWithOpenApi(z)
@@ -218,7 +219,7 @@ export const eventRouter = router({
       })
   }),
   actions: router({
-    notify: router(getDefaultActionProcedures(ActionType.NOTIFY)),
+    notify: router(notifyActionProcedures()),
     declare: router(declareActionProcedures()),
     validate: router(getDefaultActionProcedures(ActionType.VALIDATE)),
     reject: router(getDefaultActionProcedures(ActionType.REJECT)),
@@ -364,7 +365,7 @@ export const eventRouter = router({
           tags: ['events']
         }
       })
-      .mutation(({ ctx }) => reindex(ctx.token)),
+      .mutation(async ({ ctx }) => reindex(ctx.token)),
     status: systemProcedure
       .meta({
         openapi: {
