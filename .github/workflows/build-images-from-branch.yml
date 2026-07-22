@@ -39,7 +39,7 @@ on:
   workflow_dispatch:
     inputs:
       branch_tag_name:
-        default: develop
+        default: tonga/dep/v1.9.13/prod
         required: true
         description: Branch or Tag to build from
       publish_release:
@@ -78,13 +78,18 @@ jobs:
         env:
           BRANCH: ${{ inputs.branch_tag_name || github.ref_name }}
         run: |
-          export VERSION=`git log -1 --pretty=format:%h`
+          export VERSION=$(git rev-parse --short=7 HEAD)
           echo "Pushing version $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          ESCAPED_BRANCH=$(echo $BRANCH | sed 's/[^a-zA-Z0-9_.-]/-/g')
-          echo "from branch $ESCAPED_BRANCH"
-          echo "branch=$ESCAPED_BRANCH" >> $GITHUB_OUTPUT
+          # Map branch to short code and sanitize
+          SHORT_BRANCH=$(echo $BRANCH | sed 's/tonga\/deployment/deploy\/ton/g; s/tonga/ton/g; s/deployment/deploy/g; s/develop/dev/g')
+          ESCAPED_BRANCH=$(echo $SHORT_BRANCH | sed 's/[^a-zA-Z0-9_.-]/-/g')
+          
+          # New tag format: short-branch-sha
+          BRANCH_SHA_TAG="$ESCAPED_BRANCH-$VERSION"
+          echo "from branch $BRANCH (shortened to $SHORT_BRANCH, escaped to $ESCAPED_BRANCH)"
+          echo "branch=$BRANCH_SHA_TAG" >> $GITHUB_OUTPUT
 
       - name: Set architecture label
         id: arch_label
@@ -102,12 +107,11 @@ jobs:
           # Set the list of service names as an output variable
           echo "services=$services_json" >> $GITHUB_OUTPUT
           echo "services=$services_json"
-      - name: Log in to GitHub Container Registry
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push base image
         uses: Wandalen/wretry.action@v3.8.0
         with:
@@ -119,9 +123,9 @@ jobs:
             push: true
             context: .
             tags: |
-              ghcr.io/opencrvs/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}${{ steps.arch_label.outputs.arch }}
-              ghcr.io/opencrvs/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}${{ steps.arch_label.outputs.arch }}
-            cache-from: type=registry,ref=ghcr.io/opencrvs/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}${{ steps.arch_label.outputs.arch }}
+              ${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.version }}${{ steps.arch_label.outputs.arch }}
+              ${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}${{ steps.arch_label.outputs.arch }}
+            cache-from: type=registry,ref=${{ vars.DOCKER_ORG }}/ocrvs-base:${{ steps.set-version-and-branch.outputs.branch }}${{ steps.arch_label.outputs.arch }}
             cache-to: type=inline
 
     outputs:
@@ -133,26 +137,25 @@ jobs:
     needs: [base]
     runs-on: ubuntu-24.04
     steps:
-      - name: Log in to GitHub Container Registry
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Create and push multi-arch manifest
         env:
           BUILD_ARM: ${{ inputs.build_arm == true }}
         run: |
-          REPO="ghcr.io/opencrvs/ocrvs-base"
+          REPO="${{ vars.DOCKER_ORG }}/ocrvs-base"
           for TAG in ${{ needs.base.outputs.branch }} ${{ needs.base.outputs.version }}; do
             if [[ "$BUILD_ARM" == "true" ]]; then
               MANIFEST_LIST="$REPO:$TAG-amd64 $REPO:$TAG-arm64"
             else
               MANIFEST_LIST="$REPO:$TAG-amd64"
             fi
-            echo "[🔁 pushing ] ghcr.io/opencrvs/ocrvs-base:$TAG"
-            docker manifest create ghcr.io/opencrvs/ocrvs-base:$TAG $MANIFEST_LIST
-            docker manifest push ghcr.io/opencrvs/ocrvs-base:$TAG
+            echo "[🔁 pushing ] ${{ vars.DOCKER_ORG }}/ocrvs-base:$TAG"
+            docker manifest create ${{ vars.DOCKER_ORG }}/ocrvs-base:$TAG $MANIFEST_LIST
+            docker manifest push ${{ vars.DOCKER_ORG }}/ocrvs-base:$TAG
           done
   build:
     needs: [base, merge-manifest]
@@ -176,12 +179,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set architecture label
         id: arch_label
@@ -202,13 +204,14 @@ jobs:
             build-args: |
               VERSION=${{ needs.base.outputs.version }}
               BRANCH=${{ needs.base.outputs.branch }}
+              DOCKER_ORGID=${{ vars.DOCKER_ORG }}
             provenance: false
             push: true
             context: .
             tags: |
-              ghcr.io/opencrvs/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}${{ steps.arch_label.outputs.arch }}
-              ghcr.io/opencrvs/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}${{ steps.arch_label.outputs.arch }}
-            cache-from: type=registry,ref=ghcr.io/opencrvs/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}${{ steps.arch_label.outputs.arch }}
+              ${{ vars.DOCKER_ORG }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.version }}${{ steps.arch_label.outputs.arch }}
+              ${{ vars.DOCKER_ORG }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}${{ steps.arch_label.outputs.arch }}
+            cache-from: type=registry,ref=${{ vars.DOCKER_ORG }}/ocrvs-${{ matrix.service }}:${{ needs.base.outputs.branch }}${{ steps.arch_label.outputs.arch }}
             cache-to: type=inline
 
   merge-services-manifest:
@@ -220,18 +223,17 @@ jobs:
         service: ${{ fromJSON(needs.base.outputs.services) }}
     runs-on: ubuntu-24.04
     steps:
-      - name: Log in to GitHub Container Registry
+      - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Create and push multi-arch manifest
         env:
           BUILD_ARM: ${{ inputs.build_arm == true }}
         run: |
-          REPO_PREFIX="ghcr.io/opencrvs/ocrvs"
+          REPO_PREFIX="${{ vars.DOCKER_ORG }}/ocrvs"
 
           for TAG in ${{ needs.base.outputs.branch }} ${{ needs.base.outputs.version }}; do
             # Create manifest list based on whether ARM build exists
