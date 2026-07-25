@@ -48,10 +48,8 @@ interface SimpleDocumentUploaderProps {
   description?: string
   width?: 'full' | 'auto'
   acceptedFileTypes?: MimeType[]
-  error?: string
   disableDeleteInPreview?: boolean
   onComplete: (file: File | null) => void
-  touched?: boolean
   disabled?: boolean
   onUploadingStateChanged?: (isUploading: boolean) => void
   previewTransformer?: (files: FileFieldValue) => FileFieldValue
@@ -67,10 +65,8 @@ export function SimpleDocumentUploader({
   label,
   file,
   description,
-  error: errorProps,
   disabled,
   disableDeleteInPreview,
-  touched,
   width,
   maxFileSize
 }: SimpleDocumentUploaderProps) {
@@ -102,14 +98,10 @@ export function SimpleDocumentUploader({
     closePreviewSection()
   }
 
-  const errorMessage = error || errorProps || ''
-
   return (
     <>
       {description && <FieldDescription>{description}</FieldDescription>}
-      {errorMessage && (touched || error) && (
-        <ErrorText id="field-error">{errorMessage}</ErrorText>
-      )}
+      {error && <ErrorText id="field-error">{error}</ErrorText>}
       <Preview
         attachment={file}
         disabled={disabled}

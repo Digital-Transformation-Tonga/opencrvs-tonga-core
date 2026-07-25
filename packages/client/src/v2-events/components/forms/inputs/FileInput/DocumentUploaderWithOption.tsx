@@ -9,7 +9,7 @@
  * Copyright (C) The OpenCRVS Authors located at https://github.com/opencrvs/opencrvs-core/blob/master/AUTHORS.
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { useField } from 'formik'
 import {
@@ -30,7 +30,6 @@ import { useImageProcessing } from '@client/utils/imageUtils'
 import { DocumentUploader } from './SimpleDocumentUploader'
 import { DocumentListPreview } from './DocumentListPreview'
 import { DocumentPreview } from './DocumentPreview'
-import { File } from './FileInput'
 import { useOnFileChange } from './useOnFileChange'
 import { SingleDocumentPreview } from './SingleDocumentPreview'
 
@@ -49,8 +48,13 @@ const Flex = styled.div`
 
 function getUpdatedFiles(
   prevFiles: FileFieldValueWithOption[],
-  newFile: FileFieldValueWithOption
+  newFile: FileFieldValueWithOption,
+  allowMultiplePerOption = false
 ) {
+  if (allowMultiplePerOption) {
+    return [...prevFiles, newFile]
+  }
+
   return [
     ...prevFiles.filter((prevFile) => prevFile.option !== newFile.option),
     newFile
@@ -101,6 +105,15 @@ function DocumentUploaderWithOption({
   )
 
   const [files, setFiles] = useState(value)
+
+  // Keep local state in sync with the value coming from the form store.
+  // On back-navigation the field re-mounts before Formik has re-initialised, so
+  // it first renders with an empty value and only receives the real value on a
+  // later render. Without this sync the uploaded file would never re-appear.
+  useEffect(() => {
+    setFiles(value)
+  }, [value])
+
   const [filesBeingProcessed, setFilesBeingProcessed] = useState<
     Array<{ label: string }>
   >([])
@@ -117,6 +130,8 @@ function DocumentUploaderWithOption({
     useState<FileFieldValueWithOption | null>(null)
   const { processImageFile } = useImageProcessing()
 
+  const allowMultiplePerOption = options.length === 1
+
   const { uploadFile } = useFileUpload(name, {
     onSuccess: ({ type, originalFilename, path, id }) => {
       const newFile = {
@@ -128,9 +143,19 @@ function DocumentUploaderWithOption({
 
       setFilesBeingProcessed((prev) => prev.filter(({ label }) => label !== id))
 
-      setFiles((prevFiles) => getUpdatedFiles(prevFiles, newFile))
-      onChange(getUpdatedFiles(files, newFile))
-      setSelectedOption(undefined)
+      setFiles((prevFiles) => {
+        const updatedFiles = getUpdatedFiles(
+          prevFiles,
+          newFile,
+          allowMultiplePerOption
+        )
+        onChange(updatedFiles)
+        return updatedFiles
+      })
+
+      if (!allowMultiplePerOption) {
+        setSelectedOption(undefined)
+      }
     }
   })
 
@@ -181,49 +206,26 @@ function DocumentUploaderWithOption({
     setPreviewImage(null)
   }
 
-  const remainingOptions = options.filter(
-    ({ value: val }) => !files.some((file) => file.option === val)
-  )
+  // Keep the only option available so users can upload multiple "Other" files.
+  const remainingOptions = allowMultiplePerOption
+    ? options
+    : options.filter(
+        ({ value: val }) => !files.some((file) => file.option === val)
+      )
 
   if (hideOnEmptyOption && remainingOptions.length === 0) {
     return null
   }
 
-  if (options.length === 1) {
-    const [onlyOption] = options
-    return (
-      <File.Input
-        acceptedFileTypes={acceptedFileTypes}
-        description={description}
-        disabled={disabled}
-        error={error}
-        label={
-          typeof onlyOption.label === 'string'
-            ? onlyOption.label
-            : intl.formatMessage(onlyOption.label)
-        }
-        maxFileSize={maxFileSize}
-        name={name}
-        value={value[0]}
-        width={'full'}
-        onChange={(file) => {
-          if (file) {
-            onChange([{ ...file, option: onlyOption.value }])
-          }
-        }}
-      />
-    )
-  }
-
   if (
-    autoSelectOnlyOption &&
+    (allowMultiplePerOption || autoSelectOnlyOption) &&
     remainingOptions.length === 1 &&
     remainingOptions[0].value !== selectedOption
   ) {
     setSelectedOption(remainingOptions[0].value)
   }
 
-  const errorMessage = unselectedOptionError || fileChangeError || ''
+  const errorMessage = unselectedOptionError || fileChangeError || error || ''
 
   return (
     <UploadWrapper>
@@ -243,22 +245,9 @@ function DocumentUploaderWithOption({
         }
       />
 
-      <Flex>
-        <DropdownContainer>
-          <Select.Input
-            disabled={disabled}
-            id={name}
-            options={remainingOptions}
-            type={'SELECT'}
-            value={selectedOption}
-            onChange={(val) => {
-              void helpers.setTouched(true)
-              setSelectedOption(val)
-              setUnselectedOptionError('')
-            }}
-          />
-        </DropdownContainer>
+      {allowMultiplePerOption ? (
         <DocumentUploader
+          fullWidth
           disabled={!selectedOption || disabled}
           id={name}
           name={name}
@@ -266,7 +255,32 @@ function DocumentUploaderWithOption({
         >
           {intl.formatMessage(messages.uploadFile)}
         </DocumentUploader>
-      </Flex>
+      ) : (
+        <Flex>
+          <DropdownContainer>
+            <Select.Input
+              disabled={disabled}
+              id={name}
+              options={remainingOptions}
+              type={'SELECT'}
+              value={selectedOption}
+              onChange={(val) => {
+                void helpers.setTouched(true)
+                setSelectedOption(val)
+                setUnselectedOptionError('')
+              }}
+            />
+          </DropdownContainer>
+          <DocumentUploader
+            disabled={!selectedOption || disabled}
+            id={name}
+            name={name}
+            onChange={handleFileChange}
+          >
+            {intl.formatMessage(messages.uploadFile)}
+          </DocumentUploader>
+        </Flex>
+      )}
 
       {previewImage && (
         <DocumentPreview
