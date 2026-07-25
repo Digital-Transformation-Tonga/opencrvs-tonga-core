@@ -18,31 +18,55 @@ POLL_INTERVAL="${POLL_INTERVAL:-10}"
 MAX_POLLS="${MAX_POLLS:-1080}"
 
 get_reindexing_token() {
-  curl -s "${AUTH_URL%/}/internal/reindexing-token" | jq -r '.token'
+  local res
+  res=$(curl -s "${AUTH_URL%/}/internal/reindexing-token" || true)
+  local token
+  token=$(echo "$res" | jq -r '.token // empty' 2>/dev/null || true)
+  if [ -z "$token" ] || [ "$token" = "null" ]; then
+    echo "ERROR: Failed to retrieve reindexing token from ${AUTH_URL%/}/internal/reindexing-token. Response: ${res}" >&2
+    return 1
+  fi
+  echo "$token"
 }
 
 # Fires POST /events/reindex in a background subshell.
-# The response is intentionally discarded — reindexing can take a long time
-# and may even time out at the HTTP level. Progress is tracked via polling.
+# If an error occurs, it prints to stderr so it is visible in development logs.
 fire_trigger() {
   local token=$1
-  curl -s -o /dev/null \
-    -X POST \
-    -H "Authorization: Bearer ${token}" \
-    -H "Content-Type: application/json" \
-    "${EVENTS_URL%/}/events/reindex" &
+  (
+    local response http_code
+    response=$(curl -s -w "\n%{http_code}" \
+      -X POST \
+      -H "Authorization: Bearer ${token}" \
+      -H "Content-Type: application/json" \
+      "${EVENTS_URL%/}/events/reindex" 2>&1 || echo "CURL_ERROR 000")
+    
+    http_code=$(echo "$response" | tail -n1)
+    if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+      echo "  [Trigger Warning] POST /events/reindex returned HTTP ${http_code}: $(echo "$response" | head -n -1)" >&2
+    fi
+  ) &
 }
 
-# Returns the most recent reindex status document whose timestamp >= $2,
+# Returns the most recent active or new reindex status document,
 # as a compact JSON object, or empty string if none found yet.
 fetch_latest_run_since() {
   local token=$1 since=$2
-  curl -s \
+  local response
+  
+  response=$(curl -s \
     -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
-    "${EVENTS_URL%/}/events/reindex" \
-  | jq -c --arg since "$since" \
-    'map(select(.timestamp >= $since)) | sort_by(.timestamp) | reverse | .[0] // empty'
+    "${EVENTS_URL%/}/events/reindex" || true)
+  
+  if echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    echo "$response" | jq -c --arg since "$since" \
+      'map(select(.status == "running" or .timestamp >= $since)) | sort_by(.timestamp) | reverse | .[0] // empty' || true
+  else
+    if [ -n "$response" ]; then
+      echo "  [Poll Warning] GET /events/reindex response: ${response}" >&2
+    fi
+  fi
 }
 
 # ---------------------------------------------------------------------------
