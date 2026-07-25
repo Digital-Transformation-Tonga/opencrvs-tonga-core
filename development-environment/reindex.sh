@@ -35,16 +35,14 @@ fire_trigger() {
 
 # Returns the most recent reindex status document whose timestamp >= $2,
 # as a compact JSON object, or empty string if none found yet.
-# Both sides of the comparison are truncated to 19 chars (YYYY-MM-DDTHH:MM:SS)
-# to avoid the '.' < 'Z' string-sort trap with millisecond timestamps.
 fetch_latest_run_since() {
   local token=$1 since=$2
   curl -s \
     -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
     "${EVENTS_URL%/}/events/reindex" \
-  | jq -c --arg since "${since:0:19}" \
-    'map(select(.timestamp[0:19] >= $since)) | sort_by(.timestamp) | reverse | .[0] // empty'
+  | jq -c --arg since "$since" \
+    'map(select(.timestamp >= $since)) | sort_by(.timestamp) | reverse | .[0] // empty'
 }
 
 # ---------------------------------------------------------------------------
