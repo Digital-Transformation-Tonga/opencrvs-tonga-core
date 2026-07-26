@@ -30,23 +30,16 @@ get_reindexing_token() {
 }
 
 # Fires POST /events/reindex in a background subshell.
-# If an error occurs, it prints to stderr so it is visible in development logs.
+# The response is intentionally backgrounded — reindexing can take a long time.
+# Progress is tracked via polling.
 fire_trigger() {
   local token=$1
-  (
-    local response http_code
-    response=$(curl -s -w "\n%{http_code}" \
-      -X POST \
-      -d "{}" \
-      -H "Authorization: Bearer ${token}" \
-      -H "Content-Type: application/json" \
-      "${EVENTS_URL%/}/events/reindex" 2>&1) || true
-    
-    http_code=$(echo "$response" | tail -n1)
-    if [ "$http_code" != "200" ] && [ "$http_code" != "201" ] && [ "$http_code" != "204" ]; then
-      echo "  [Trigger Warning] POST /events/reindex returned HTTP ${http_code}: $(echo "$response" | head -n -1)" >&2
-    fi
-  ) &
+  curl -s -o /dev/null \
+    -X POST \
+    -d "{}" \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    "${EVENTS_URL%/}/events/reindex" &
 }
 
 # Returns the most recent active or new reindex status document,
