@@ -37,12 +37,13 @@ fire_trigger() {
     local response http_code
     response=$(curl -s -w "\n%{http_code}" \
       -X POST \
+      -d "{}" \
       -H "Authorization: Bearer ${token}" \
       -H "Content-Type: application/json" \
-      "${EVENTS_URL%/}/events/reindex" 2>&1 || echo "CURL_ERROR 000")
+      "${EVENTS_URL%/}/events/reindex" 2>&1) || true
     
     http_code=$(echo "$response" | tail -n1)
-    if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+    if [ "$http_code" != "200" ] && [ "$http_code" != "201" ] && [ "$http_code" != "204" ]; then
       echo "  [Trigger Warning] POST /events/reindex returned HTTP ${http_code}: $(echo "$response" | head -n -1)" >&2
     fi
   ) &
