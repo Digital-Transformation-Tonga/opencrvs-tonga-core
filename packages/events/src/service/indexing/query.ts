@@ -107,9 +107,16 @@ function generateQuery(
     }
 
     if (search.type === 'exact') {
+      // TEXT fields are analyzed (e.g. slash-separated BRNs become multiple
+      // tokens). Default match uses OR, which effectively ignores the full ID
+      // when combined with a broad date range. Require all tokens instead.
+      // Keyword-mapped fields remain a single token, so this stays exact.
       return {
         match: {
-          [esFieldName]: search.term
+          [esFieldName]: {
+            query: search.term,
+            operator: 'and'
+          }
         }
       }
     }
