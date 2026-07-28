@@ -492,6 +492,11 @@ export async function findRecordsByQuery(
   const esClient = getOrCreateClient()
 
   const { query, limit, offset } = search
+  // Clamp to Elasticsearch max_result_window (from + size <= 10000)
+  const safeOffset = Math.min(
+    offset,
+    Math.max(0, ELASTICSEARCH_MAXIMUM_QUERY_SIZE - limit)
+  )
 
   const esQuery = withJurisdictionFilters(
     await buildElasticQueryFromSearchPayload(query, eventConfigs),
@@ -502,7 +507,7 @@ export async function findRecordsByQuery(
   const response = await esClient.search<EncodedEventIndex>({
     index: getEventAliasName(),
     size: limit,
-    from: offset,
+    from: safeOffset,
     track_total_hits: true,
     request_cache: false,
     query: esQuery,
