@@ -441,9 +441,15 @@ export const SearchResultComponent = ({
 
   const rows = mapEventsToResultRows(sortedResult)
 
-  const currentPageNumber = Math.floor(offset / limit) + 1
-
-  const totalPages = totalResults ? Math.ceil(totalResults / limit) : 0
+  // Elasticsearch max_result_window: from + size must be <= 10000
+  const maxPages = Math.floor(10000 / limit)
+  const totalPages = totalResults
+    ? Math.min(Math.ceil(totalResults / limit), maxPages)
+    : 0
+  const currentPageNumber = Math.min(
+    Math.floor(offset / limit) + 1,
+    Math.max(totalPages, 1)
+  )
 
   const isShowPagination = totalPages > 1
 

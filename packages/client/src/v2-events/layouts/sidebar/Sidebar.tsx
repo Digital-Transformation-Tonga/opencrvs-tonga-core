@@ -77,7 +77,7 @@ function Workqueues({
   return workqueues.map(({ name: label, slug, icon }) => (
     <NavigationItem
       key={slug}
-      count={counts[slug] || 0}
+      count={Math.min(counts[slug] || 0, 10000)}
       data-testid={`navigation_workqueue_${slug}`}
       icon={() => <Icon name={icon} size="small" />}
       id={`navigation_workqueue_${slug}`}
