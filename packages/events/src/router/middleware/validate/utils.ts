@@ -71,16 +71,30 @@ export function omitUncorrectableFields(
   )
 }
 
+export function isMigratedRecord(declaration: EventState) {
+  return declaration['legacyInfo.isMigrated'] === 'true'
+}
+
 /**
  * Compares update vs cleaned payloads and returns an array of offending keys.
+ *
+ * When `allowHiddenFieldValues` is true, keys present in `update` but missing
+ * from `cleaned` are allowed. The caller is responsible for restricting this
+ * exception to correction requests for migrated records.
  */
 export function getInvalidUpdateKeys<T>({
   update,
-  cleaned
+  cleaned,
+  allowHiddenFieldValues = false
 }: {
   update: T
   cleaned: T
+  allowHiddenFieldValues?: boolean
 }): ValidationError[] {
+  if (allowHiddenFieldValues) {
+    return []
+  }
+
   const updateEntries = flattenEntries(update)
   const cleanedKeys = flattenEntries(cleaned).map(([key]) => key)
 
