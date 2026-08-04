@@ -33,6 +33,9 @@ import { DocumentPreview } from './DocumentPreview'
 import { useOnFileChange } from './useOnFileChange'
 import { SingleDocumentPreview } from './SingleDocumentPreview'
 
+/** Max documents when a single-option field allows multiple uploads. */
+const MAX_FILES_WHEN_MULTIPLE_PER_OPTION = 5
+
 const UploadWrapper = styled.div`
   width: 100%;
 `
@@ -52,6 +55,9 @@ function getUpdatedFiles(
   allowMultiplePerOption = false
 ) {
   if (allowMultiplePerOption) {
+    if (prevFiles.length >= MAX_FILES_WHEN_MULTIPLE_PER_OPTION) {
+      return prevFiles
+    }
     return [...prevFiles, newFile]
   }
 
@@ -65,6 +71,12 @@ const DocumentTypeRequiredError = {
   id: 'imageUploadOption.upload.documentType',
   defaultMessage: 'Please select the type of document first',
   description: 'Show error message if the document type is not selected'
+}
+
+const MaxFilesError = {
+  id: 'imageUploadOption.upload.maxFiles',
+  defaultMessage: 'You can upload a maximum of {maxFiles} documents',
+  description: 'Error when the maximum number of documents is reached'
 }
 
 /**
@@ -107,9 +119,6 @@ function DocumentUploaderWithOption({
   const [files, setFiles] = useState(value)
 
   // Keep local state in sync with the value coming from the form store.
-  // On back-navigation the field re-mounts before Formik has re-initialised, so
-  // it first renders with an empty value and only receives the real value on a
-  // later render. Without this sync the uploaded file would never re-appear.
   useEffect(() => {
     setFiles(value)
   }, [value])
@@ -131,6 +140,16 @@ function DocumentUploaderWithOption({
   const { processImageFile } = useImageProcessing()
 
   const allowMultiplePerOption = options.length === 1
+  const maxFilesReached =
+    allowMultiplePerOption &&
+    files.length + filesBeingProcessed.length >=
+      MAX_FILES_WHEN_MULTIPLE_PER_OPTION
+
+  const maxFilesErrorMessage = maxFilesReached
+    ? intl.formatMessage(MaxFilesError, {
+        maxFiles: MAX_FILES_WHEN_MULTIPLE_PER_OPTION
+      })
+    : ''
 
   const { uploadFile } = useFileUpload(name, {
     onSuccess: ({ type, originalFilename, path, id }) => {
@@ -169,6 +188,10 @@ function DocumentUploaderWithOption({
 
   const onComplete = async (newFile: File | null) => {
     if (newFile) {
+      if (maxFilesReached) {
+        setUnselectedOptionError(maxFilesErrorMessage)
+        return
+      }
       if (selectedOption) {
         const processedFile = await processImageFile(
           newFile,
@@ -181,6 +204,7 @@ function DocumentUploaderWithOption({
           return
         }
         setFilesBeingProcessed((prev) => [...prev, { label: selectedOption }])
+        setUnselectedOptionError('')
 
         uploadFile(processedFile, selectedOption)
       } else {
@@ -203,6 +227,7 @@ function DocumentUploaderWithOption({
       return updatedFiles
     })
 
+    setUnselectedOptionError('')
     setPreviewImage(null)
   }
 
@@ -225,7 +250,12 @@ function DocumentUploaderWithOption({
     setSelectedOption(remainingOptions[0].value)
   }
 
-  const errorMessage = unselectedOptionError || fileChangeError || error || ''
+  const errorMessage =
+    unselectedOptionError ||
+    fileChangeError ||
+    maxFilesErrorMessage ||
+    error ||
+    ''
 
   return (
     <UploadWrapper>
@@ -248,7 +278,7 @@ function DocumentUploaderWithOption({
       {allowMultiplePerOption ? (
         <DocumentUploader
           fullWidth
-          disabled={!selectedOption || disabled}
+          disabled={!selectedOption || disabled || maxFilesReached}
           id={name}
           name={name}
           onChange={handleFileChange}
