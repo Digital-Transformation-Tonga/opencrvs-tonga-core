@@ -58,7 +58,8 @@ import {
   getInvalidUpdateKeys,
   getVerificationPageErrors,
   throwWhenNotEmpty,
-  omitUncorrectableFields
+  omitUncorrectableFields,
+  isMigratedRecord
 } from './utils'
 
 export function getFieldErrors(
@@ -175,9 +176,15 @@ function validateDeclarationUpdateAction({
   )
 
   // 4. When completeDeclaration update has fields that are not in the cleaned declaration, payload is invalid.
+  // During correction of a migrated record, allow hidden/disabled values because
+  // legacy data can contain values that no longer match current form conditionals.
+  // Read migration status from the trusted stored declaration, not the request payload.
   const invalidKeys = getInvalidUpdateKeys({
     update: completeDeclaration,
-    cleaned: cleanedDeclaration
+    cleaned: cleanedDeclaration,
+    allowHiddenFieldValues:
+      actionType === ActionType.REQUEST_CORRECTION &&
+      isMigratedRecord(previousDeclaration)
   })
 
   if (invalidKeys.length > 0) {
