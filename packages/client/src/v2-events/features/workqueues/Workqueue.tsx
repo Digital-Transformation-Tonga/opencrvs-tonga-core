@@ -76,7 +76,7 @@ function ConfigurableWorkqueue({ workqueueSlug }: { workqueueSlug: string }) {
       eventConfigs={eventConfigs}
       queryData={events}
       title={intl.formatMessage(workqueueConfig.name)}
-      totalResults={total}
+      totalResults={Math.min(total, 10000)}
       {...searchParams}
     />
   )
