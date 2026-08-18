@@ -16,6 +16,10 @@ extendZodWithOpenApi(z)
 export const MINIO_REGEX =
   /^https?:\/\/[^\/]+(.*)?\/[^\/?]+\.(jpg|png|jpeg|pdf|svg)(\?.*)?$/i
 
+/** Unsigned MinIO object URLs only — used by the service worker CacheFirst route. */
+export const MINIO_CACHE_REGEX =
+  /^https?:\/\/[^\/]+(.*)?\/[^\/?]+\.(jpg|png|jpeg|pdf|svg)$/i
+
 export function isBase64FileString(str: string) {
   if (str === '' || str.trim() === '') {
     return false
