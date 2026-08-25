@@ -124,7 +124,7 @@ export function DocumentViewer({
           />
         </ViewerHeader>
         {!!selectedOption && (
-          <ViewerImage key={selectedOption.value.id}>
+          <ViewerImage key={selectedOption.value.filename}>
             {renderDocument()}
           </ViewerImage>
         )}
