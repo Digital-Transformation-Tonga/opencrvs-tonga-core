@@ -250,12 +250,10 @@ function DocumentUploaderWithOption({
     setSelectedOption(remainingOptions[0].value)
   }
 
+  // Form-level validation (e.g. "Required") is already shown by InputField below
+  // the control. Only surface uploader-local errors here to avoid duplicate messages.
   const errorMessage =
-    unselectedOptionError ||
-    fileChangeError ||
-    maxFilesErrorMessage ||
-    error ||
-    ''
+    unselectedOptionError || fileChangeError || maxFilesErrorMessage || ''
 
   return (
     <UploadWrapper>

@@ -111,6 +111,16 @@ export const getRoutes = () => {
       }
     },
     {
+      method: 'GET',
+      path: '/content/{filePath*}',
+      handler: async (req, h) => {
+        return h.proxy({
+          uri: `${DOCUMENTS_URL}/content/${req.params.filePath}`,
+          passThrough: true
+        })
+      }
+    },
+    {
       method: 'DELETE',
       path: '/files/{filePath*}',
       handler: async (req, h) => {

@@ -17,7 +17,7 @@ import {
 import { registerRoute, NavigationRoute } from 'workbox-routing'
 import { NetworkFirst, CacheFirst } from 'workbox-strategies'
 import { clientsClaim } from 'workbox-core'
-import { MINIO_REGEX } from '@opencrvs/commons/client'
+import { MINIO_CACHE_REGEX } from '@opencrvs/commons/client'
 
 self.__WB_DISABLE_DEV_LOGS = true
 
@@ -70,8 +70,8 @@ registerRoute(/http(.+)config$/, new NetworkFirst())
 // This caches certificates fetched from the countryconfig microservice
 registerRoute(/api\/countryconfig\/certificates/, new NetworkFirst())
 
-// This caches the minio urls
-registerRoute(MINIO_REGEX, new CacheFirst())
+// This caches the minio urls (unsigned only — signed URLs must hit the network)
+registerRoute(MINIO_CACHE_REGEX, new CacheFirst())
 
 /*
  *   Alternate for navigateFallback & navigateFallbackBlacklist
