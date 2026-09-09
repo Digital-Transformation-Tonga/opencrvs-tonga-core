@@ -55,7 +55,8 @@ import { TrpcUserContext } from '@events/context'
 import { getActionConfirmationToken } from '@events/service/auth'
 import {
   ActionConfirmationResponse,
-  requestActionConfirmation
+  requestActionConfirmation,
+  notifyCountryConfigRegistrationComplete
 } from './actionConfirmationRequest'
 
 /**
@@ -293,7 +294,7 @@ export async function defaultRequestHandler(
       ? (keepAssignmentIfAccepted ?? keepAssignment ?? false)
       : (keepAssignmentIfRejected ?? keepAssignment ?? false)
 
-  return processAction(
+  const result = await processAction(
     {
       ...strippedInput,
       keepAssignment: effectiveKeepAssignment,
@@ -303,6 +304,62 @@ export async function defaultRequestHandler(
     },
     { event, user, token, status, configuration }
   )
+
+  if (input.type === ActionType.REGISTER && status === ActionStatus.Accepted) {
+    const registrationNumber =
+      'registrationNumber' in parsedBody &&
+      typeof parsedBody.registrationNumber === 'string'
+        ? parsedBody.registrationNumber
+        : undefined
+
+    await notifyCountryConfigAfterRegisterAccept({
+      event: result,
+      registrationNumber,
+      actionId: requestedAction.id,
+      token: eventActionToken
+    })
+  }
+
+  return result
+}
+
+async function notifyCountryConfigAfterRegisterAccept({
+  event,
+  registrationNumber,
+  actionId,
+  token
+}: {
+  event: EventDocument
+  registrationNumber?: string
+  actionId: string
+  token: string
+}) {
+  if (!registrationNumber) {
+    logger.error(
+      { eventId: event.id, actionId },
+      'REGISTER accepted without a registrationNumber; country-config was not notified'
+    )
+    return
+  }
+
+  try {
+    await notifyCountryConfigRegistrationComplete({
+      event,
+      registrationNumber,
+      actionId,
+      token: setBearerForToken(token)
+    })
+  } catch (error) {
+    logger.error(
+      {
+        error,
+        eventId: event.id,
+        actionId,
+        trackingId: event.trackingId
+      },
+      'Failed to notify country-config after registration accept'
+    )
+  }
 }
 
 /**
@@ -427,7 +484,7 @@ export function getDefaultActionProcedures(
           return getEventById(input.eventId)
         }
 
-        return processAction(
+        const result = await processAction(
           {
             ...input,
             originalActionId: actionId
@@ -440,6 +497,23 @@ export function getDefaultActionProcedures(
             configuration
           }
         )
+
+        if (actionType === ActionType.REGISTER) {
+          const registrationNumber =
+            'registrationNumber' in input &&
+            typeof input.registrationNumber === 'string'
+              ? input.registrationNumber
+              : undefined
+
+          await notifyCountryConfigAfterRegisterAccept({
+            event: result,
+            registrationNumber,
+            actionId,
+            token
+          })
+        }
+
+        return result
       }),
 
     reject: systemProcedure
