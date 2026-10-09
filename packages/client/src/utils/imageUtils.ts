@@ -179,22 +179,30 @@ export const bytesToMB = (bytes: number) =>
 
 export async function fetchFileFromUrl(
   externalUrl: string,
-  filename: string
+  filename: string,
+  init?: RequestInit
 ): Promise<File | undefined> {
-  const res = await fetch(externalUrl)
+  try {
+    const res = await fetch(externalUrl, init)
 
-  if (!res.ok) {
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `Failed to fetch file from URL: ${externalUrl}. Status: ${res.status} ${res.statusText}`
+      )
+
+      return undefined
+    }
+
+    const blob = await res.blob()
+
+    return new File([blob], filename, { type: blob.type })
+  } catch (error) {
+    // CORS / network failures must not crash event loading (cacheFiles).
     // eslint-disable-next-line no-console
-    console.error(
-      `Failed to fetch file from URL: ${externalUrl}. Status: ${res.status} ${res.statusText}`
-    )
-
+    console.error(`Failed to fetch file from URL: ${externalUrl}`, error)
     return undefined
   }
-
-  const blob = await res.blob()
-
-  return new File([blob], filename, { type: blob.type })
 }
 
 async function getImageFromFile(

@@ -93,13 +93,16 @@ function getFileOptions(
               ? fieldOption.label
               : intl.formatMessage(fieldOption.label)
 
+          // Path must be part of id: multiple files can share one option ("Other").
           return {
             value: {
               filename: formVal.path,
               url: getUnsignedFileUrl(formVal.path),
-              id: `${field.config.id}-${formVal.option}`
+              id: `${field.config.id}-${formVal.option}-${formVal.path}`
             },
-            label: `${fieldLabel} (${optionLabel})`
+            label: formVal.originalFilename
+              ? `${fieldLabel} (${optionLabel} - ${formVal.originalFilename})`
+              : `${fieldLabel} (${optionLabel})`
           }
         })
         .filter((val) => !isNil(val))

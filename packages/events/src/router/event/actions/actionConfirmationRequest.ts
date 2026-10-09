@@ -93,3 +93,52 @@ export async function requestActionConfirmation(
     }
   }
 }
+
+export async function notifyCountryConfigRegistrationComplete({
+  event,
+  registrationNumber,
+  actionId,
+  token
+}: {
+  event: EventDocument
+  registrationNumber: string
+  actionId: string
+  token: string
+}): Promise<void> {
+  const url = new URL(
+    `/trigger/events/${event.type}/registration-complete`,
+    env.COUNTRY_CONFIG_URL
+  )
+
+  logger.debug(
+    {
+      url,
+      eventType: event.type,
+      eventId: event.id,
+      trackingId: event.trackingId,
+      registrationNumber,
+      actionId
+    },
+    'Notifying country-config of registration complete'
+  )
+
+  const res = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({
+      event,
+      registrationNumber,
+      actionId
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token
+    }
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `Country-config registration complete hook failed [${res.status}]: ${body}`
+    )
+  }
+}

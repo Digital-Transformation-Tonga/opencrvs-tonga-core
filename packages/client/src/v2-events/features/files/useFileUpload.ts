@@ -103,29 +103,29 @@ async function deleteFile({ filename }: { filename: string }): Promise<void> {
 const UPLOAD_MUTATION_KEY = 'uploadFile'
 const DELETE_MUTATION_KEY = 'deleteFile'
 
-async function getPresignedUrl(filePath: FullDocumentPath) {
-  const url = joinUrlPaths('/api/presigned-url', filePath)
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${getToken()}`
-    }
-  })
-
-  const res = await response.json()
-  return res
-}
-
 export async function precacheFile(path: FullDocumentPath) {
-  const presignedUrl = (await getPresignedUrl(path)).presignedURL
+  try {
+    // Fetch via same-origin documents proxy. Direct MinIO signed URLs are
+    // blocked by CORS in local/dev (PDF fetch needs readable responses;
+    // <img> for images does not).
+    const file = await fetchFileFromUrl(
+      joinUrlPaths('/api/content', path),
+      path,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      }
+    )
 
-  const file = await fetchFileFromUrl(presignedUrl, path)
+    if (file) {
+      const url = getUnsignedFileUrl(path)
 
-  if (file) {
-    const url = getUnsignedFileUrl(path)
-
-    await cacheFile({ url, file })
+      await cacheFile({ url, file })
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`Failed to precache file ${path}`, error)
   }
 }
 

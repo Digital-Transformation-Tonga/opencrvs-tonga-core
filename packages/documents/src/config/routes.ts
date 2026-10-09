@@ -19,6 +19,7 @@ import {
   createPresignedUrlsInBulk,
   listFiles
 } from '@documents/features/getDocument/handler'
+import { downloadDocumentHandler } from '@documents/features/getDocument/downloadHandler'
 import { svgUploadHandler } from '@documents/features/uploadSvg/handler'
 import { deleteDocument } from '@documents/features/deleteDocument/handler'
 
@@ -29,6 +30,15 @@ export const getRoutes = () => {
       method: 'GET',
       path: `/list-files/{prefix*}`,
       handler: listFiles,
+      config: {
+        tags: ['api']
+      }
+    },
+    // Stream file content (same-origin download for browser PDF/image cache)
+    {
+      method: 'GET',
+      path: `/content/{filePath*}`,
+      handler: downloadDocumentHandler,
       config: {
         tags: ['api']
       }
