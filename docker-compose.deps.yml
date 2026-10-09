@@ -40,5 +40,5 @@ services:
     restart: unless-stopped
 
   minio:
-    image: cgr.dev/chainguard/minio-client:latest
+    image: chainguard/minio:latest
     restart: unless-stopped
